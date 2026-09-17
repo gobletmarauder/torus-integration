@@ -191,7 +191,7 @@ Verdict:
 |---|---|---|
 | AGENTS.md | e2e0a98b4f84016c | unchanged in M0 |
 | scripts/guard.py | 74f3461961dcef20 | M0 |
-| scripts/verify_bundle.sh | 7575c3d9681d3792 | M0 |
+| scripts/verify_bundle.sh | 5631d1053aa8dd91 | M0 |
 | src/tis/http.py | not present | deferred to M1 |
 | src/tis/guards.py | not present | deferred to M1 |
 | .github/workflows/ci.yml | 3eac93db15d9252a | M0 |
