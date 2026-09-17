@@ -97,7 +97,7 @@ Result: PASS
 
 - Keep M0 as a non-packaged uv project with no runtime dependencies; source imports are configured for tests and tools.
 - Run gitleaks from its digest-pinned container and mask only the local `.venv` mount with an empty tmpfs so `--no-git` scans repository content without scanning third-party cache files.
-- Run Trivy from its pinned action in CI/release and its digest-pinned container in verification bundles; release scanning happens before registry authentication and push.
+- Run Trivy from its pinned action in CI/release and its digest-pinned container in verification bundles, using the official Docker Hub vulnerability database mirror; release scanning happens before registry authentication and push.
 - Treat missing future protected files (`src/tis/http.py`, `src/tis/guards.py`, and `deploy/deploy.sh`) as not present rather than creating out-of-scope placeholders.
 
 **Deferred items**
@@ -191,7 +191,7 @@ Verdict:
 |---|---|---|
 | AGENTS.md | e2e0a98b4f84016c | unchanged in M0 |
 | scripts/guard.py | 74f3461961dcef20 | M0 |
-| scripts/verify_bundle.sh | 5631d1053aa8dd91 | M0 |
+| scripts/verify_bundle.sh | 0f1ffb56d63dc63b | M0 |
 | src/tis/http.py | not present | deferred to M1 |
 | src/tis/guards.py | not present | deferred to M1 |
 | .github/workflows/ci.yml | 3eac93db15d9252a | M0 |

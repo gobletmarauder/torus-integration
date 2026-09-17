@@ -182,7 +182,7 @@ printf '%s\n' "$docker_output" | code_block
 printf '### Trivy image scan\n\n' >>"$temporary_bundle"
 trivy_image="ghcr.io/aquasecurity/trivy:0.69.3@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c"
 docker save --output "$temporary_dir/tis-image.tar" tis:m0-local
-if trivy_output="$(MSYS_NO_PATHCONV=1 docker run --rm --volume "$temporary_mount:/scan" "$trivy_image" image --input /scan/tis-image.tar --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 --no-progress 2>&1)"; then
+if trivy_output="$(MSYS_NO_PATHCONV=1 docker run --rm --volume "$temporary_mount:/scan" "$trivy_image" image --input /scan/tis-image.tar --db-repository aquasec/trivy-db:2 --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 --no-progress 2>&1)"; then
   trivy_status="PASS"
   printf 'PASS\n\n' >>"$temporary_bundle"
 else
