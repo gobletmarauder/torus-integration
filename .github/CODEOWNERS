@@ -1,0 +1,13 @@
+* @rehaan
+
+/AGENTS.md @rehaan
+/.github/ @rehaan
+/deploy/ @rehaan
+/infra/ @rehaan
+/.sops.yaml @rehaan
+/secrets/ @rehaan
+/scripts/guard.py @rehaan
+/scripts/verify_bundle.sh @rehaan
+/src/tis/http.py @rehaan
+/src/tis/guards.py @rehaan
+
