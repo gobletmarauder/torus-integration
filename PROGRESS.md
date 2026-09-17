@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M0 · **Current gate:** G0 · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M0 · **Current gate:** G2 · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -10,7 +10,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 
 | Milestone | G0 Plan | G1 Local | G2 CI | G3 Claude | G4 Dry run | G5 Live | G6 Burn-in | Bundle / PR |
 |---|---|---|---|---|---|---|---|---|
-| M0 Repo bootstrap | ☐ | ☐ | ☐ | ☐ | n/a | n/a | n/a | |
+| M0 Repo bootstrap | ☑ | ☑ | ☐ | ☐ | n/a | n/a | n/a | pending PR |
 | M1 Core library | ☐ | ☐ | ☐ | ☐ | n/a | n/a | n/a | |
 | M2 Lead sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M3 Booking sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
@@ -31,14 +31,14 @@ Legend: ☐ not started · ◐ in progress · ☑ passed · ✖ failed (see inci
 
 | Task | Status | PR | Notes |
 |---|---|---|---|
-| M0.1 Layout, pyproject, tooling | ☐ | | |
-| M0.2 Makefile | ☐ | | |
-| M0.3 guard.py | ☐ | | |
-| M0.4 verify_bundle.sh | ☐ | | |
-| M0.5 CI and release workflows | ☐ | | |
-| M0.6 CODEOWNERS, PR template | ☐ | | |
-| M0.7 .env.example, .sops.yaml | ☐ | | |
-| M0.8 PROGRESS.md initialized | ☐ | | |
+| M0.1 Layout, pyproject, tooling | ☑ | pending | Python 3.12 skeleton, exact dev pins, lockfile, Dockerfile, and placeholder directories added. |
+| M0.2 Makefile | ☑ | pending | setup, lint, type, test, guard, audit, license, check, build, verify-bundle, and Terraform validation targets added. |
+| M0.3 guard.py | ☑ | pending | Static policy checks implemented; 27 unit tests include isolated planted violations. |
+| M0.4 verify_bundle.sh | ☑ | pending | Fifteen-section, size-splitting, post-generation secret-scanned bundle generator added. |
+| M0.5 CI and release workflows | ☑ | pending | SHA-pinned CI/release workflows added with least privilege, scan-before-push, SBOM, and conditional Terraform validation. |
+| M0.6 CODEOWNERS, PR template | ☑ | pending | Ownership and required evidence/security/deviation prompts added. |
+| M0.7 .env.example, .sops.yaml | ☑ | pending | Setting names are documented without values; SOPS policy is a non-key placeholder. |
+| M0.8 PROGRESS.md initialized | ☑ | pending | M0 status, G1 evidence, decisions, open questions, and protected hashes recorded. |
 
 **G0 plan**
 
@@ -73,7 +73,18 @@ Open questions: none. The repository stores the master plan as `docs/torus-mesh-
 **G1 evidence**
 
 ```
-(command, date, summary of results)
+Command: make check
+Date: 2026-09-17 UTC
+Result: PASS
+- ruff check: passed
+- ruff format --check: 15 files already formatted
+- mypy src/tis: success, no issues in 5 source files
+- pytest: 27 passed; 100% bootstrap source coverage; required 85% reached
+- scripts/guard.py: passed; 7 protected changes reported
+- pip-audit: no known vulnerabilities
+- pip-licenses: passed the GPL/AGPL rejection policy
+- gitleaks detect --no-git: no leaks in 257.86 KB of repository content
+- docker build --tag tis:m0-local .: passed
 ```
 
 **G3 verdict (Claude)**
@@ -84,11 +95,14 @@ Open questions: none. The repository stores the master plan as `docs/torus-mesh-
 
 **Decisions made during the milestone**
 
-- 
+- Keep M0 as a non-packaged uv project with no runtime dependencies; source imports are configured for tests and tools.
+- Run gitleaks from its digest-pinned container and mask only the local `.venv` mount with an empty tmpfs so `--no-git` scans repository content without scanning third-party cache files.
+- Run Trivy from its pinned action in CI/release and its digest-pinned container in verification bundles; release scanning happens before registry authentication and push.
+- Treat missing future protected files (`src/tis/http.py`, `src/tis/guards.py`, and `deploy/deploy.sh`) as not present rather than creating out-of-scope placeholders.
 
 **Deferred items**
 
-- 
+- None.
 
 ---
 
@@ -175,10 +189,10 @@ Verdict:
 
 | File | SHA-256 (first 16) | Changed in |
 |---|---|---|
-| AGENTS.md | | |
-| scripts/guard.py | | |
-| scripts/verify_bundle.sh | | |
-| src/tis/http.py | | |
-| src/tis/guards.py | | |
-| .github/workflows/ci.yml | | |
-| deploy/deploy.sh | | |
+| AGENTS.md | e2e0a98b4f84016c | unchanged in M0 |
+| scripts/guard.py | 74f3461961dcef20 | M0 |
+| scripts/verify_bundle.sh | 7575c3d9681d3792 | M0 |
+| src/tis/http.py | not present | deferred to M1 |
+| src/tis/guards.py | not present | deferred to M1 |
+| .github/workflows/ci.yml | 3eac93db15d9252a | M0 |
+| deploy/deploy.sh | not present | deferred to M5 |
