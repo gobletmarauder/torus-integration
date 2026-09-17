@@ -98,6 +98,7 @@ Result: PASS
 - Keep M0 as a non-packaged uv project with no runtime dependencies; source imports are configured for tests and tools.
 - Run gitleaks from its digest-pinned container and mask only the local `.venv` mount with an empty tmpfs so `--no-git` scans repository content without scanning third-party cache files.
 - Run Trivy from its pinned action in CI/release and its digest-pinned container in verification bundles, using the official Docker Hub vulnerability database mirror; release scanning happens before registry authentication and push.
+- Apply current Debian security upgrades while building the M0 image, then remove apt indexes, because the current Python 3.12 slim base digest contains fixable HIGH/CRITICAL OS findings before upgrades.
 - Treat missing future protected files (`src/tis/http.py`, `src/tis/guards.py`, and `deploy/deploy.sh`) as not present rather than creating out-of-scope placeholders.
 
 **Deferred items**
