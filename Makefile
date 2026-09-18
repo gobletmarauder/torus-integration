@@ -1,6 +1,7 @@
 UV ?= uv
 PYTHON ?= $(UV) run python
 IMAGE ?= tis:local
+export IMAGE
 GITLEAKS_IMAGE := ghcr.io/gitleaks/gitleaks:v8.30.0@sha256:691af3c7c5a48b16f187ce3446d5f194838f91238f27270ed36eef6359a574d9
 
 ifeq ($(OS),Windows_NT)
@@ -43,7 +44,7 @@ check: lint type test guard audit license
 	$(MAKE) build
 
 verify-bundle:
-	IMAGE="$(IMAGE)" "$(BASH)" scripts/verify_bundle.sh "$(MILESTONE)"
+	"$(BASH)" scripts/verify_bundle.sh "$(MILESTONE)"
 
 tf-fmt:
 	terraform -chdir=infra/cloudflare fmt -check -recursive

@@ -49,3 +49,10 @@ def test_release_privileges_and_exact_image_handoff() -> None:
     assert "docker push" in publish
     assert "docker build" not in publish
     assert "docker/build-push-action" not in workflow
+
+
+def test_make_exports_milestone_neutral_image_to_bundle_script() -> None:
+    makefile = read("Makefile")
+
+    assert "IMAGE ?= tis:local\nexport IMAGE" in makefile
+    assert 'IMAGE="$(IMAGE)"' not in makefile
