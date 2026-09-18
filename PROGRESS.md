@@ -89,21 +89,29 @@ Result: PASS
 
 **G3 verdict (Claude)**
 
-```
-(PASS/FAIL, date, bundle file name, findings, required fixes)
-```
+G3 VERDICT: PASS WITH NOTES
+Milestone: M0   Bundle: M0-cad58e01-part1.md, M0-cad58e01-part2.md   Head: cad58e01
 
-**Decisions made during the milestone**
+Blocking before merge:
+1. G2: CI must be green on GitHub for this PR (bundle only shows local checks).
+2. CODEOWNERS uses @rehaan; confirm that is the exact GitHub handle, otherwise ownership rules silently do nothing.
 
-- Keep M0 as a non-packaged uv project with no runtime dependencies; source imports are configured for tests and tools.
-- Run gitleaks from its digest-pinned container and mask only the local `.venv` mount with an empty tmpfs so `--no-git` scans repository content without scanning third-party cache files.
-- Run Trivy from its pinned action in CI/release and its digest-pinned container in verification bundles, using the official Docker Hub vulnerability database mirror; release scanning happens before registry authentication and push.
-- Apply current Debian security upgrades while building the M0 image, then remove apt indexes, because the current Python 3.12 slim base digest contains fixable HIGH/CRITICAL OS findings before upgrades.
-- Treat missing future protected files (`src/tis/http.py`, `src/tis/guards.py`, and `deploy/deploy.sh`) as not present rather than creating out-of-scope placeholders.
+Required before M1 starts (task M0.9, protected-change):
+1. [B-integrity] scripts/verify_bundle.sh section 15 prints a hardcoded "no security issues" note instead of Codex's real PR notes. Read notes from docs/pr-notes/<MILESTONE>.md and fail if the file is missing.
+2. [B-integrity] verify_bundle.sh hardcodes M0 (task ids, "### M0 G0 plan" heading, image tag tis:m0-local) and reads the first G3 verdict in PROGRESS.md regardless of milestone. Parameterize by milestone.
+3. [B1] Scope check marks a file "in plan" if its path appears anywhere in PROGRESS.md. Limit the search to the current milestone's G0 plan text.
+4. [B10/B11] Bundle omits non-src changes (Dockerfile, Makefile, pyproject.toml, .env.example, .gitignore, .dockerignore, tests/**). Include their diffs (400-line cap each). Dockerfile and tests were not reviewable in this bundle.
+5. [B5] guard.py forbidden imports omit httpx (the planned HTTP client), urllib3, websockets, smtplib, ftplib. Add them. Also flag importlib.import_module / __import__, attribute calls to eval/exec, and any shell= value that is not the constant False.
+6. [B11] ci.yml terraform job uses hashFiles() in a job-level if, which runs before checkout; the job will never run. Move the condition to a step after checkout or use a paths filter.
+7. [B11] release.yml builds the image twice: Trivy scans one build, then build-push-action publishes a new build. Split into a build-and-scan job (contents: read) and a publish job (packages: write) that pushes the exact scanned image. This also keeps packages: write away from dependency installs and tests.
 
-**Deferred items**
+Non-blocking notes:
+1. Rename docs/torus-mesh-MASTER-PLAN.md to docs/MASTER-PLAN.md (and the other prefixed docs) so AGENTS.md references resolve.
+2. Bundle size: drop the duplicate license listing and exclude docs/** and *.md from the section 7 grep.
+3. Split bundle parts on line boundaries instead of byte counts.
+4. The run shows Docker pulls from a Windows machine; if Codex CLI ran these, it had network access. Approving network use per session is fine; keep full-access mode off.
 
-- None.
+Checks confirmed: B2 no secrets (gitleaks clean) · B3 protected files listed with hashes · B4 dev dependencies exact-pinned, licenses clean, docs/dependencies.md present, no runtime deps · B6 no unsafe execution · B7/B8 no external writes or SQL · B10 27 tests pass, no skips · B11 actions pinned by SHA, default contents: read, no pull_request_target · image 57 MB, Trivy 0 fixable HIGH/CRITICAL.
 
 ---
 
