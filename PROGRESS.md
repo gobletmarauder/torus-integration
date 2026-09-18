@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M0 · **Current gate:** G2 · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M0.9 · **Current gate:** G1 blocked on local Docker Desktop · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -10,7 +10,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 
 | Milestone | G0 Plan | G1 Local | G2 CI | G3 Claude | G4 Dry run | G5 Live | G6 Burn-in | Bundle / PR |
 |---|---|---|---|---|---|---|---|---|
-| M0 Repo bootstrap | ☑ | ☑ | ☐ | ☐ | n/a | n/a | n/a | pending PR |
+| M0 Repo bootstrap | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #1 merged; M0.9 follow-up in PR #2 |
 | M1 Core library | ☐ | ☐ | ☐ | ☐ | n/a | n/a | n/a | |
 | M2 Lead sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M3 Booking sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
@@ -31,15 +31,15 @@ Legend: ☐ not started · ◐ in progress · ☑ passed · ✖ failed (see inci
 
 | Task | Status | PR | Notes |
 |---|---|---|---|
-| M0.1 Layout, pyproject, tooling | ☑ | pending | Python 3.12 skeleton, exact dev pins, lockfile, Dockerfile, and placeholder directories added. |
-| M0.2 Makefile | ☑ | pending | setup, lint, type, test, guard, audit, license, check, build, verify-bundle, and Terraform validation targets added. |
-| M0.3 guard.py | ☑ | pending | Static policy checks implemented; 27 unit tests include isolated planted violations. |
-| M0.4 verify_bundle.sh | ☑ | pending | Fifteen-section, size-splitting, post-generation secret-scanned bundle generator added. |
-| M0.5 CI and release workflows | ☑ | pending | SHA-pinned CI/release workflows added with least privilege, scan-before-push, SBOM, and conditional Terraform validation. |
-| M0.6 CODEOWNERS, PR template | ☑ | pending | Ownership and required evidence/security/deviation prompts added. |
-| M0.7 .env.example, .sops.yaml | ☑ | pending | Setting names are documented without values; SOPS policy is a non-key placeholder. |
-| M0.8 PROGRESS.md initialized | ☑ | pending | M0 status, G1 evidence, decisions, open questions, and protected hashes recorded. |
-| M0.9 Verification and workflow integrity fixes | ◐ | pending | G0 plan drafted from the M0 G3 required findings; implementation awaits approval. |
+| M0.1 Layout, pyproject, tooling | ☑ | #1 merged | Python 3.12 skeleton, exact dev pins, lockfile, Dockerfile, and placeholder directories added. |
+| M0.2 Makefile | ☑ | #1 merged | setup, lint, type, test, guard, audit, license, check, build, verify-bundle, and Terraform validation targets added. |
+| M0.3 guard.py | ☑ | #1 merged | Static policy checks implemented; 27 unit tests include isolated planted violations. |
+| M0.4 verify_bundle.sh | ☑ | #1 merged | Fifteen-section, size-splitting, post-generation secret-scanned bundle generator added. |
+| M0.5 CI and release workflows | ☑ | #1 merged | SHA-pinned CI/release workflows added with least privilege, scan-before-push, SBOM, and conditional Terraform validation. |
+| M0.6 CODEOWNERS, PR template | ☑ | #1 merged | Ownership and required evidence/security/deviation prompts added. |
+| M0.7 .env.example, .sops.yaml | ☑ | #1 merged | Setting names are documented without values; SOPS policy is a non-key placeholder. |
+| M0.8 PROGRESS.md initialized | ☑ | #1 merged | M0 status, G1 evidence, decisions, open questions, and protected hashes recorded. |
+| M0.9 Verification and workflow integrity fixes | ◐ | #2 | Implementation and hosted CI are green; local G1 and bundle are blocked by a Docker Desktop startup failure. |
 
 **G0 plan**
 
@@ -69,7 +69,7 @@ GitHub Actions pinned by commit SHA: both workflows will use only `actions/check
 
 Rollback: before merge, revert the M0 implementation commit(s) on the feature branch or close the PR; after merge, create a normal revert PR for the M0 commits. No migrations, production deployment, external-system records, or mutable infrastructure are involved. If a release test tag published an image, leave the immutable digest for audit and remove only the tag/package version through GitHub’s reviewed UI if Rehaan explicitly chooses to do so.
 
-Open questions: none. The repository stores the master plan as `docs/torus-mesh-MASTER-PLAN.md`, not the `docs/MASTER-PLAN.md` path named by the task; this plan used the former because it contains the requested Parts 2–5 and M0 definition. The `<owner>` portion of the GHCR name will be derived from `github.repository_owner`, so no owner value is hardcoded.
+Open questions: none. The master plan is now stored at the canonical `docs/MASTER-PLAN.md` path. The `<owner>` portion of the GHCR name is derived from `github.repository_owner`, so no owner value is hardcoded.
 
 **G1 evidence**
 
@@ -137,6 +137,33 @@ Implementation details: `scripts/verify_bundle.sh` will derive the selected mile
 Rollback: before merge, revert the M0.9 implementation commits or close the PR. After merge, use a normal revert PR. The changes affect repository validation and CI/release mechanics only; no production deploy, schema, Cloudflare resource, home server, or service record is changed. A failed tag run may leave only a GitHub Actions artifact; no GHCR image is pushed unless the scan and artifact handoff succeed.
 
 Open questions: none. M1 must wait until M0.9 completes G0-G3 and Rehaan merges it. Per the master plan’s one-milestone-at-a-time rule, M1 will receive its own G0 plan next; M6 will receive a separate G0 plan only after the preceding milestone is complete. Terraform plan/apply remain prohibited during code milestones.
+
+**M0.9 G1 evidence (incomplete)**
+
+```
+Command: make check
+Date: 2026-09-18 UTC
+Result: BLOCKED by the local Docker Desktop installation; G1 is not marked passed.
+- ruff check: passed
+- ruff format --check: 19 files already formatted
+- mypy src/tis: success, no issues in 5 source files
+- pytest: 56 passed; 100% bootstrap source coverage; required 85% reached
+- scripts/guard.py: passed; 4 protected changes reported
+- pip-audit: no known vulnerabilities
+- pip-licenses: passed the GPL/AGPL rejection policy
+- local gitleaks/Docker build: not run because Docker Desktop 4.54.0 crashes while initializing its dockerInference socket
+- hosted CI run 35394656113: passed both jobs; make check, real Docker build, gitleaks, Trivy, and CycloneDX SBOM all passed
+```
+
+**M0.9 decisions made**
+
+- Canonicalized the three planning/hosting/Cloudflare document names so the binding repository paths resolve directly.
+- Kept verification parsing in sourceable shell helpers, allowing synthetic repositories and fake command shims to test milestone bounds, scope membership, notes, configurable images, diff truncation, and line-safe splitting without network access.
+- Release builds and scans once under read-only permissions, transfers the exact image archive and SBOM as an Actions artifact, and grants `packages: write` only to the load-and-push job.
+
+**M0.9 open questions / blocker**
+
+No implementation questions. Local G1 and `make verify-bundle MILESTONE=M0.9` require a working Docker engine. Docker Desktop currently crashes before its engine starts because Windows reports its generated `dockerInference` socket as inaccessible; backend and WSL restarts did not clear it. A Docker Desktop repair or Windows restart is required before those mandatory local commands can complete. M1 remains blocked.
 
 ---
 
@@ -224,9 +251,10 @@ Verdict:
 | File | SHA-256 (first 16) | Changed in |
 |---|---|---|
 | AGENTS.md | e2e0a98b4f84016c | unchanged in M0 |
-| scripts/guard.py | 74f3461961dcef20 | M0 |
-| scripts/verify_bundle.sh | 0f1ffb56d63dc63b | M0 |
+| scripts/guard.py | ae34b60a6ca3d3c3 | M0.9 |
+| scripts/verify_bundle.sh | 972e4c131054f0dd | M0.9 |
 | src/tis/http.py | not present | deferred to M1 |
 | src/tis/guards.py | not present | deferred to M1 |
-| .github/workflows/ci.yml | 3eac93db15d9252a | M0 |
+| .github/workflows/ci.yml | 2da7d04ad3321338 | M0.9 |
+| .github/workflows/release.yml | 0e838e82f03a5f5d | M0.9 |
 | deploy/deploy.sh | not present | deferred to M5 |
