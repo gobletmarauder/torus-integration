@@ -14,8 +14,8 @@ Companion files:
 | `PROGRESS.md` | root of the `torus-integrations` repo | Live tracker Codex updates on every task |
 | `docs/VERIFICATION.md` | `torus-integrations` repo | How Claude verifies each gate from a compact evidence bundle |
 | `docs/MASTER-PLAN.md` | `torus-integrations` repo (copy of this file) | Milestones, tasks, acceptance criteria |
-| `torus-mesh-HOME-SERVER-HOSTING.md` | Claude project + `docs/` | Containers, deploy, secrets, monitoring, backups, runbook |
-| `torus-mesh-CLOUDFLARE-SETUP.md` | Claude project + `docs/` | Terraform (Codex-authored, human-applied) and manual steps |
+| `HOSTING.md` | Claude project + `docs/` | Containers, deploy, secrets, monitoring, backups, runbook |
+| `CLOUDFLARE.md` | Claude project + `docs/` | Terraform (Codex-authored, human-applied) and manual steps |
 | `torus-mesh-LOVABLE-FINAL-MESSAGE.md` | Claude project | The message that finishes the website end to end |
 
 ---
@@ -272,7 +272,7 @@ Each milestone lists tasks for Codex, acceptance criteria, and the gates. Codex 
 | M4.2 | `jobs/keepalive.py` (daily content RPC), `jobs/host_health.py` (every 5 minutes: disk usage of mounted `/host-state` < 85%, last backup age < 26 hours from `integration_state`, unsynced leads older than 30 minutes = 0, booking errors last hour = 0 → heartbeat `tis-health`) |
 | M4.3 | `api/app.py`: `/healthz` (process up, DB reachable) bound to the internal Docker network; `/ops/status` JSON (running version and digest, job last-run times, kill switch, today's write counts, unsynced counts) that validates the `Cf-Access-Jwt-Assertion` header against the Access team keys and audience |
 | M4.4 | `Dockerfile`: multi-stage, `python:3.12-slim` pinned by digest, non-root uid 10001, no compilers in final stage, `HEALTHCHECK`, `PYTHONDONTWRITEBYTECODE`, read-only friendly |
-| M4.5 | `deploy/compose.yaml` per `torus-mesh-HOME-SERVER-HOSTING.md` Part 3 |
+| M4.5 | `deploy/compose.yaml` per `HOSTING.md` Part 3 |
 
 **Acceptance:** `docker compose up` locally with fakes runs all jobs in dry run; Trivy clean; image under 250 MB. **Gates:** G0 to G3.
 
@@ -290,7 +290,7 @@ Each milestone lists tasks for Codex, acceptance criteria, and the gates. Codex 
 
 ### M6. Cloudflare infrastructure
 
-Per `torus-mesh-CLOUDFLARE-SETUP.md`. Codex writes Terraform; Rehaan plans and applies.
+Per `CLOUDFLARE.md`. Codex writes Terraform; Rehaan plans and applies.
 
 | Task | Details |
 |---|---|

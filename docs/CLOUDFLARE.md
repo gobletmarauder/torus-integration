@@ -2,7 +2,7 @@
 
 **Everything Cloudflare does for Torus Mesh, set up two ways: Terraform written by Codex and applied by Rehaan (recommended), or explicit dashboard steps.**
 Version 1.0 · 16 September 2026 · Owner: Rehaan Merchant
-Reads with: `torus-mesh-MASTER-PLAN.md` (A2, A7, A9, milestone M6), `torus-mesh-HOME-SERVER-HOSTING.md`. Copy into the repo as `docs/CLOUDFLARE.md`.
+Reads with: `MASTER-PLAN.md` (A2, A7, A9, milestone M6) and `HOSTING.md`.
 
 **Rule:** Codex writes Terraform and never runs it. Rehaan runs `plan`, Claude reviews the plan text, Rehaan runs `apply`. A Cloudflare token that can edit DNS can take down the website and company email in one call.
 
