@@ -143,7 +143,8 @@ def test_present_notes_and_configured_image_flow_through_fake_tools(tmp_path: Pa
         [
             BASH,
             "-c",
-            'shim_dir="$(cygpath -u "$1")"; '
+            'shim_dir="$1"; if command -v cygpath >/dev/null 2>&1; then '
+            'shim_dir="$(cygpath -u "$shim_dir")"; fi; '
             'export PATH="$shim_dir:$PATH" IMAGE="fixture:image"; bash "$2" M9',
             "bundle-test",
             fake_bin.as_posix(),
