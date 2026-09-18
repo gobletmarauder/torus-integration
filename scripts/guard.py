@@ -12,7 +12,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
-FORBIDDEN_IMPORTS = ("requests", "urllib.request", "http.client", "aiohttp", "socket")
+FORBIDDEN_IMPORTS = (
+    "requests",
+    "urllib.request",
+    "http.client",
+    "aiohttp",
+    "socket",
+    "httpx",
+    "urllib3",
+    "websockets",
+    "smtplib",
+    "ftplib",
+)
 PROTECTED_EXACT = {
     "AGENTS.md",
     ".sops.yaml",
@@ -89,21 +100,32 @@ class PythonPolicyVisitor(ast.NodeVisitor):
         if isinstance(node.func, ast.Name):
             if node.func.id in {"eval", "exec"}:
                 self.add(node, "PY002", "dynamic execution is forbidden")
+            if node.func.id == "__import__":
+                self.add(node, "PY005", "dynamic imports are forbidden")
             if node.func.id in self.pickle_load_aliases:
                 self.add(node, "PY004", "pickle deserialization is forbidden")
             if node.func.id == "print" and self.path.startswith("src/"):
                 self.add(node, "LOG001", "print calls are forbidden under src/")
-        if (
-            isinstance(node.func, ast.Attribute)
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id == "pickle"
-            and node.func.attr == "loads"
-        ):
-            self.add(node, "PY004", "pickle deserialization is forbidden")
+        if isinstance(node.func, ast.Attribute):
+            if node.func.attr in {"eval", "exec"}:
+                self.add(node, "PY002", "dynamic execution is forbidden")
+            if (
+                isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "pickle"
+                and node.func.attr == "loads"
+            ):
+                self.add(node, "PY004", "pickle deserialization is forbidden")
+            if (
+                isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "importlib"
+                and node.func.attr == "import_module"
+            ):
+                self.add(node, "PY005", "dynamic imports are forbidden")
         for keyword in node.keywords:
-            if keyword.arg == "shell" and isinstance(keyword.value, ast.Constant):
-                if keyword.value.value is True:
-                    self.add(node, "PY003", "subprocess shell execution is forbidden")
+            if keyword.arg == "shell" and not (
+                isinstance(keyword.value, ast.Constant) and keyword.value.value is False
+            ):
+                self.add(node, "PY003", "subprocess shell execution is forbidden")
         self.generic_visit(node)
 
     def visit_Constant(self, node: ast.Constant) -> None:

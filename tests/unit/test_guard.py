@@ -74,7 +74,19 @@ def test_safe_tree_passes(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "module", ["requests", "urllib.request", "http.client", "aiohttp", "socket"]
+    "module",
+    [
+        "requests",
+        "urllib.request",
+        "http.client",
+        "aiohttp",
+        "socket",
+        "httpx",
+        "urllib3",
+        "websockets",
+        "smtplib",
+        "ftplib",
+    ],
 )
 def test_forbidden_network_imports_fail(tmp_path: Path, module: str) -> None:
     base = initialize_repository(tmp_path)
@@ -86,9 +98,19 @@ def test_forbidden_network_imports_fail(tmp_path: Path, module: str) -> None:
     assert "NET001" in result.stdout
 
 
-def test_http_module_is_the_only_network_import_exception(tmp_path: Path) -> None:
+@pytest.mark.parametrize("module", ["httpx", "urllib3", "websockets", "smtplib", "ftplib"])
+def test_http_module_is_the_only_network_import_exception(tmp_path: Path, module: str) -> None:
     base = initialize_repository(tmp_path)
-    write(tmp_path, "src/tis/http.py", "im" + "port socket\n")
+    write(tmp_path, "src/tis/http.py", "im" + f"port {module}\n")
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 0
+
+
+def test_literal_false_is_the_only_allowed_shell_value(tmp_path: Path) -> None:
+    base = initialize_repository(tmp_path)
+    write(tmp_path, "src/tis/module.py", "import subprocess\nsubprocess.run([], shell=False)\n")
 
     result = guard(tmp_path, base)
 
@@ -101,6 +123,10 @@ def test_http_module_is_the_only_network_import_exception(tmp_path: Path) -> Non
         ("import subprocess\nsubprocess.run([], shell=" + "True)\n", "PY003"),
         (("ev" + "al") + "('1')\n", "PY002"),
         (("ex" + "ec") + "('x = 1')\n", "PY002"),
+        ("import builtins\nbuiltins." + "eval('1')\n", "PY002"),
+        ("import builtins\nbuiltins." + "exec('x = 1')\n", "PY002"),
+        ("import importlib\nimportlib.import_" + "module('module')\n", "PY005"),
+        (("__im" + "port__") + "('module')\n", "PY005"),
         ("import pickle\npickle." + "loads(b'x')\n", "PY004"),
         (("pri" + "nt") + "('x')\n", "LOG001"),
     ],
@@ -113,6 +139,22 @@ def test_unsafe_python_constructs_fail(tmp_path: Path, source: str, rule: str) -
 
     assert result.returncode == 1
     assert rule in result.stdout
+
+
+@pytest.mark.parametrize("value", ["True", "None", "1", "'yes'", "enabled"])
+def test_non_false_shell_values_fail(tmp_path: Path, value: str) -> None:
+    base = initialize_repository(tmp_path)
+    prefix = "enabled = False\n" if value == "enabled" else ""
+    write(
+        tmp_path,
+        "src/tis/module.py",
+        prefix + "import subprocess\nsubprocess.run([], shell=" + value + ")\n",
+    )
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 1
+    assert "PY003" in result.stdout
 
 
 def test_long_encoded_blob_fails(tmp_path: Path) -> None:

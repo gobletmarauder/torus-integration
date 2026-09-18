@@ -2,7 +2,7 @@
 
 **How the Torus Integration Service (`tis`) runs on the home server: containers, deploys, secrets, monitoring, backups and the runbook.**
 Version 1.0 · 16 September 2026 · Owner: Rehaan Merchant
-Reads with: `torus-mesh-MASTER-PLAN.md` (decisions A1 to A10, milestones M4 and M5) and `torus-mesh-CLOUDFLARE-SETUP.md` (tunnel and Access). Copy into the repo as `docs/HOSTING.md`.
+Reads with: `MASTER-PLAN.md` (decisions A1 to A10, milestones M4 and M5) and `CLOUDFLARE.md` (tunnel and Access).
 
 **Goal:** it runs on its own, tells you when it doesn't, and can be rebuilt from the repo, the password manager and R2 in under an hour.
 
