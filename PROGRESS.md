@@ -147,12 +147,13 @@ Result: BLOCKED by the local Docker Desktop installation; G1 is not marked passe
 - ruff check: passed
 - ruff format --check: 19 files already formatted
 - mypy src/tis: success, no issues in 5 source files
-- pytest: 56 passed; 100% bootstrap source coverage; required 85% reached
+- pytest: 57 passed; 100% bootstrap source coverage; required 85% reached
 - scripts/guard.py: passed; 4 protected changes reported
 - pip-audit: no known vulnerabilities
 - pip-licenses: passed the GPL/AGPL rejection policy
 - local gitleaks/Docker build: not run because Docker Desktop 4.54.0 crashes while initializing its dockerInference socket
-- hosted CI run 35394656113: passed both jobs; make check, real Docker build, gitleaks, Trivy, and CycloneDX SBOM all passed
+- hosted CI run 35395117127 at head 649a26e: passed both jobs; make check, real Docker build, gitleaks, Trivy, and CycloneDX SBOM all passed
+- make verify-bundle MILESTONE=M0.9: started successfully after the portable Makefile fix, then was interrupted after the unavailable Docker engine left its first Docker call blocked; no M0.9 bundle was emitted
 ```
 
 **M0.9 decisions made**
