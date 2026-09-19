@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M6 · **Current gate:** G2 CI pending · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M6 · **Current gate:** G3 review pending · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -16,7 +16,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 | M3 Booking sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M4 Packaging | ☐ | ☐ | ☐ | ☐ | ☐ | n/a | n/a | |
 | M5 Deploy tooling | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| M6 Cloudflare IaC | ☑ | ☑ | ◐ | ☐ | plan reviewed ☐ | applied ☐ | n/a | PR #4; local G1 green |
+| M6 Cloudflare IaC | ☑ | ☑ | ☑ | ◐ | plan reviewed ☐ | applied ☐ | n/a | PR #4; G1/G2 green |
 | M7 Cutover | n/a | n/a | n/a | ☐ | ☐ | ☐ | ☐ | |
 
 Legend: ☐ not started · ◐ in progress · ☑ passed · ✖ failed (see incidents)
@@ -342,6 +342,7 @@ Open questions: Rehaan must confirm in the Cloudflare dashboard that the manuall
 - `make tf-fmt`: PASS with Terraform 1.14.6.
 - `make tf-validate`: PASS after `terraform init -backend=false`; Cloudflare provider 5.25.0 was selected from the committed lock file and the configuration is valid. No backend, credentials, Terraform plan, import, state, apply, or Cloudflare API operation was used.
 - `make tf-lint`: PASS with TFLint 0.64.0 and its bundled Terraform ruleset.
+- G2 CI: PASS on PR #4 at `19e326e`; the full `checks` job passed in 1m03s and the Terraform fmt/validate job passed in 1m18s.
 - Planted safety checks: PASS. Tests reject removal/replacement, unapproved resource types, MX/TXT/NS/CAA and apex/www DNS, broadened Access includes, missing or mismatched account/zone ids, 31 changes, unsafe Terraform DNS expressions, and leakage of unchecked values. The clean synthetic create-plus-import fixture passes.
 
 **M6 decisions and open questions**
