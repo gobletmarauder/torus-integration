@@ -1,0 +1,13 @@
+{
+  "resource_changes": [
+    {
+      "address": "cloudflare_dns_record.bad",
+      "mode": "managed",
+      "type": "cloudflare_dns_record",
+      "change": {
+        "actions": ["create"],
+        "after": {"zone_id": "zone-fixture", "name": "mail.example.com", "type": "MX"}
+      }
+    }
+  ]
+}

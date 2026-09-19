@@ -60,6 +60,11 @@ SQL_PATTERN = re.compile(
 ACTION_PATTERN = re.compile(r"^\s*(?:-\s*)?uses:\s*[^\s#]+@([^\s#]+)", re.MULTILINE)
 FULL_SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 WRITE_PERMISSION_PATTERN = re.compile(r"^\s*([a-z-]+):\s*write\s*$", re.MULTILINE)
+TERRAFORM_DNS_BLOCK_PATTERN = re.compile(
+    r'resource\s+"cloudflare_dns_record"\s+"[^"]+"\s*\{', re.MULTILINE
+)
+TERRAFORM_ATTRIBUTE_PATTERN = re.compile(r"^\s*(name|type)\s*=\s*([^#\r\n]+)", re.MULTILINE)
+SAFE_DNS_NAME_EXPRESSIONS = frozenset({'"ops"', '"ssh"', "var.ops_hostname", "var.ssh_hostname"})
 
 
 @dataclass(frozen=True, order=True)
@@ -211,7 +216,7 @@ def scan_text(path: Path, root: Path, text: str) -> list[Finding]:
             findings.append(
                 Finding(relative, line_number, "SQL001", "destructive SQL token is forbidden")
             )
-        for match in URL_PATTERN.finditer(line):
+        for match in () if path.suffix == ".tf" else URL_PATTERN.finditer(line):
             host = (urlsplit(match.group(0)).hostname or "").lower()
             if host in ALLOWED_URL_HOSTS and relative != "src/tis/http.py":
                 findings.append(
@@ -230,6 +235,52 @@ def scan_text(path: Path, root: Path, text: str) -> list[Finding]:
                 )
     if relative.startswith(".github/workflows/"):
         findings.extend(scan_workflow(relative, text))
+    if path.suffix == ".tf":
+        findings.extend(scan_terraform_dns(relative, text))
+    return findings
+
+
+def terraform_blocks(text: str) -> list[tuple[int, str]]:
+    """Return balanced Cloudflare DNS blocks and their starting lines."""
+    blocks: list[tuple[int, str]] = []
+    for match in TERRAFORM_DNS_BLOCK_PATTERN.finditer(text):
+        depth = 1
+        index = match.end()
+        while index < len(text) and depth:
+            if text[index] == "{":
+                depth += 1
+            elif text[index] == "}":
+                depth -= 1
+            index += 1
+        if depth == 0:
+            blocks.append((text.count("\n", 0, match.start()) + 1, text[match.end() : index - 1]))
+        else:
+            blocks.append((text.count("\n", 0, match.start()) + 1, ""))
+    return blocks
+
+
+def scan_terraform_dns(path: str, text: str) -> list[Finding]:
+    """Allow only provably safe ops/SSH CNAME Terraform DNS resources."""
+    findings: list[Finding] = []
+    for line_number, block in terraform_blocks(text):
+        attributes = {
+            match.group(1): match.group(2).strip()
+            for match in TERRAFORM_ATTRIBUTE_PATTERN.finditer(block)
+        }
+        dns_type = attributes.get("type")
+        name = attributes.get("name")
+        if dns_type != '"CNAME"':
+            findings.append(
+                Finding(
+                    path, line_number, "TFDNS001", "DNS type is forbidden or cannot be proven safe"
+                )
+            )
+        if name not in SAFE_DNS_NAME_EXPRESSIONS:
+            findings.append(
+                Finding(
+                    path, line_number, "TFDNS002", "DNS name is forbidden or cannot be proven safe"
+                )
+            )
     return findings
 
 

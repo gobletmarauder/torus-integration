@@ -12,7 +12,13 @@ BASH ?= bash
 ROOT_MOUNT := $(CURDIR)
 endif
 
-.PHONY: setup check test lint type guard audit license build verify-bundle tf-fmt tf-validate
+.PHONY: setup check test lint type guard audit license build verify-bundle tf-fmt tf-validate tf-init tf-lint tf-plan tf-gate tf-apply
+
+TF_DIR := infra/cloudflare
+TF_VARS ?= $(TF_DIR)/terraform.tfvars
+TF_PLAN := $(TF_DIR)/plan.tfplan
+TF_PLAN_JSON := $(TF_DIR)/plan.json
+TF_PLAN_TEXT := $(TF_DIR)/plan.txt
 
 setup:
 	$(UV) sync --frozen
@@ -47,8 +53,26 @@ verify-bundle:
 	"$(BASH)" scripts/verify_bundle.sh "$(MILESTONE)"
 
 tf-fmt:
-	terraform -chdir=infra/cloudflare fmt -check -recursive
+	terraform -chdir=$(TF_DIR) fmt -check -recursive
 
 tf-validate:
-	terraform -chdir=infra/cloudflare init -backend=false -input=false
-	terraform -chdir=infra/cloudflare validate
+	terraform -chdir=$(TF_DIR) init -backend=false -input=false
+	terraform -chdir=$(TF_DIR) validate
+
+tf-init:
+	terraform -chdir=$(TF_DIR) init -input=false
+
+tf-lint:
+	tflint --chdir=$(TF_DIR) --config=.tflint.hcl
+
+tf-plan:
+	terraform -chdir=$(TF_DIR) plan -input=false -var-file=terraform.tfvars -out=plan.tfplan
+	terraform -chdir=$(TF_DIR) show -no-color plan.tfplan > $(TF_PLAN_TEXT)
+	terraform -chdir=$(TF_DIR) show -json plan.tfplan > $(TF_PLAN_JSON)
+
+tf-gate:
+	$(PYTHON) scripts/tf_gate.py $(TF_PLAN_JSON) --tfvars $(TF_VARS)
+
+tf-apply: tf-gate
+	$(PYTHON) -c "from pathlib import Path; assert Path(r'$(TF_PLAN)').is_file(), 'saved plan file is missing'"
+	terraform -chdir=$(TF_DIR) apply -input=false plan.tfplan

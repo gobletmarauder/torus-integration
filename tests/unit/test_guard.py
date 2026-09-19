@@ -302,3 +302,64 @@ def test_broad_workflow_permission_fails(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "CI003" in result.stdout
     assert "CI004" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "name_expression", ["var.ops_hostname", "var.ssh_hostname", '"ops"', '"ssh"']
+)
+def test_safe_terraform_dns_records_pass(tmp_path: Path, name_expression: str) -> None:
+    base = initialize_repository(tmp_path)
+    write(
+        tmp_path,
+        "infra/cloudflare/dns.tf",
+        'resource "cloudflare_dns_record" "ops" {\n'
+        f"  name = {name_expression}\n"
+        '  type = "CNAME"\n'
+        '  content = "https' + '://internal-origin.invalid"\n'
+        "}\n",
+    )
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 0
+
+
+@pytest.mark.parametrize("dns_type", ["MX", "TXT", "NS", "CAA"])
+def test_forbidden_terraform_dns_types_fail(tmp_path: Path, dns_type: str) -> None:
+    base = initialize_repository(tmp_path)
+    write(
+        tmp_path,
+        "infra/cloudflare/dns.tf",
+        'resource "cloudflare_dns_record" "planted" {\n'
+        "  name = var.ops_hostname\n"
+        f'  type = "{dns_type}"\n'
+        "}\n",
+    )
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 1
+    assert "TFDNS001" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "name_expression",
+    ['"@"', '"www"', '"example.com"', '"www.example.com"', "var.unreviewed_hostname"],
+)
+def test_forbidden_or_unprovable_terraform_dns_names_fail(
+    tmp_path: Path, name_expression: str
+) -> None:
+    base = initialize_repository(tmp_path)
+    write(
+        tmp_path,
+        "infra/cloudflare/dns.tf",
+        'resource "cloudflare_dns_record" "planted" {\n'
+        f"  name = {name_expression}\n"
+        '  type = "CNAME"\n'
+        "}\n",
+    )
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 1
+    assert "TFDNS002" in result.stdout

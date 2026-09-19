@@ -1,0 +1,30 @@
+{
+  "resource_changes": [
+    {
+      "address": "cloudflare_dns_record.ops",
+      "mode": "managed",
+      "type": "cloudflare_dns_record",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "account_id": "acct-fixture",
+          "zone_id": "zone-fixture",
+          "name": "ops.example.com",
+          "type": "CNAME"
+        }
+      }
+    },
+    {
+      "address": "cloudflare_turnstile_widget.site",
+      "mode": "managed",
+      "type": "cloudflare_turnstile_widget",
+      "change": {
+        "actions": ["no-op"],
+        "importing": {"id": "synthetic-public-sitekey"},
+        "after": {
+          "account_id": "acct-fixture"
+        }
+      }
+    }
+  ]
+}
