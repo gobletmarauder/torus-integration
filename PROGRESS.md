@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M1 · **Current gate:** G0 awaiting approval · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M1 · **Current gate:** G1 local (Docker unavailable) · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -11,7 +11,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 | Milestone | G0 Plan | G1 Local | G2 CI | G3 Claude | G4 Dry run | G5 Live | G6 Burn-in | Bundle / PR |
 |---|---|---|---|---|---|---|---|---|
 | M0 Repo bootstrap | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #1 merged; M0.9 follow-up in PR #2 |
-| M1 Core library | ◐ | ☐ | ☐ | ☐ | n/a | n/a | n/a | G0 plan in draft PR |
+| M1 Core library | ☑ | ◐ | ☐ | ☐ | n/a | n/a | n/a | PR #3; implementation complete, local Docker checks pending |
 | M2 Lead sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M3 Booking sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M4 Packaging | ☐ | ☐ | ☐ | ☐ | ☐ | n/a | n/a | |
@@ -177,13 +177,13 @@ No implementation questions. Local G1 and `make verify-bundle MILESTONE=M0.9` re
 
 | Task | Status | PR | Notes |
 |---|---|---|---|
-| M1.1 Configuration and safe defaults | ◐ | draft | G0 plan awaiting approval. |
-| M1.2 Controlled HTTP client | ◐ | draft | Protected path planned; G0 approval required. |
-| M1.3 Structured redacted logging | ◐ | draft | G0 plan awaiting approval. |
-| M1.4 Async database pool and helpers | ◐ | draft | Exact production table columns remain an implementation prerequisite. |
-| M1.5 Integration state and kill switch | ◐ | draft | G0 plan awaiting approval. |
-| M1.6 External-write guard | ◐ | draft | Protected path planned; G0 approval required. |
-| M1.7 Better Stack and PostHog helpers | ◐ | draft | G0 plan awaiting approval. |
+| M1.1 Configuration and safe defaults | ☑ | #3 | Exact runtime pins, typed environment settings, safe dry-run invariant, job flags, and positive budgets implemented. |
+| M1.2 Controlled HTTP client | ☑ | #3 | Exact two-host allowlist, redirect revalidation, ten-second timeout, and bounded idempotent retry implemented. |
+| M1.3 Structured redacted logging | ☑ | #3 | JSON logging, correlation ids, and recursive secret/PII redaction implemented and tested. |
+| M1.4 Async database pool and helpers | ☑ | #3 | Lazy Psycopg async pool, transaction rollback, fixed parameterized queries, and ten-second statement timeout implemented. |
+| M1.5 Integration state and kill switch | ☑ | #3 | Authoritative JSON state contract, UTC last-run values, and 15-second kill-switch cache implemented. |
+| M1.6 External-write guard | ☑ | #3 | Dry run, kill switch, atomic idempotency claim, audit statuses, and per-run/per-day budgets implemented. |
+| M1.7 Better Stack and PostHog helpers | ☑ | #3 | Pydantic outgoing payloads and guarded heartbeat/capture helpers implemented with synthetic-only tests. |
 
 ### M1 G0 plan (2026-09-18)
 
@@ -206,6 +206,27 @@ Tests: configuration tests will prove `DRY_RUN` defaults to `true`, cannot becom
 Rollback: before merge, revert the M1 implementation commits or close the PR. After merge, use a normal revert PR for the M1 commits and restore the previous lockfile. M1 will not deploy, execute migrations, call production endpoints, or change external-system records; with `DRY_RUN=true` as the default, later callers remain write-disabled until an explicit production setting and all subsequent gates permit them.
 
 Open questions: before M1.4/M1.6 implementation, Rehaan must provide or confirm the redacted column contract for the existing `integration_log` and `integration_state` tables (column names/types, allowed status values, timestamps, and conflict keys) without sharing a connection string or production rows. The master plan defines the unique key `(source, external_id, action)` and required state keys but not the complete columns. If the tables do not yet exist, a separate approved plan will be required to add a human-applied SQL draft under `docs/sql/`; M1 will not guess or execute a schema. This amendment adds the direct `pydantic` pin and the protected `scripts/guard.py` scope after the first approval, so a fresh `G0 approved` comment is required. M6 is intentionally not planned or implemented in this PR because `docs/MASTER-PLAN.md` requires one milestone at a time; its protected Terraform G0 begins only after the preceding milestone sequence permits it.
+
+**M1 G1 evidence (2026-09-19)**
+
+- Fresh `G0 approved` was confirmed on PR #3 after the direct `pydantic` and protected `scripts/guard.py` amendment.
+- Rehaan supplied the authoritative redacted contracts for `public.integration_log` and `public.integration_state`; no production rows or credentials were used.
+- `uv run ruff check .`: PASS; `uv run ruff format --check .`: PASS (39 files formatted); `uv run mypy src/tis`: PASS (14 source files).
+- `uv run pytest`: PASS, 90 tests, no skips or xfails, 90.12% total coverage (`db` 86%, `guards` 94%, `http` 89%, `state` 95%). Tests use synthetic values and an autouse RESPX router that rejects every unmocked HTTP request.
+- `uv run python scripts/guard.py`: PASS; reports the three approved protected paths (`scripts/guard.py`, `src/tis/guards.py`, `src/tis/http.py`). `rg` confirms `src/tis/http.py` is the only file that imports `httpx` directly.
+- `uv run pip-audit`: PASS, no known vulnerabilities. `uv run pip-licenses --fail-on=...`: PASS; no GPL/AGPL package rejected.
+- `make check`: reached the containerized gitleaks step after all preceding checks passed, then failed because the local Docker Desktop Linux engine pipe does not exist. Native `gitleaks` is not installed, and the Docker image build therefore also could not run. Per the approved instruction, Codex did not wait for or attempt to repair Docker; G2 CI remains the container/gitleaks gate. Local G1 stays partial until those two Docker-backed checks run.
+
+**M1 decisions made**
+
+- The supplied `Prefer: resolution=merge-duplicates` instruction is a Supabase REST header. Because M1 approved Psycopg and no Supabase HTTP egress host, the implementation uses the equivalent parameterized PostgreSQL `ON CONFLICT (source, external_id, action)` path and records this interpretation in `docs/pr-notes/M1.md`.
+- A live write first makes an atomic `integration_log` claim using the authoritative unique key. An existing `ok` or in-progress claim cannot execute twice; prior `error` or dry-run `skipped` rows may be reclaimed safely.
+- Better Stack endpoint paths can contain monitor credentials, so HTTP logs redact all non-root URL paths in addition to sensitive headers, query parameters, and every request/response body.
+- The static guard mirrors the exact runtime allowlist, fails on drift, and permits only the `httpx` client import in `src/tis/http.py`; other network clients remain forbidden even in that module.
+
+**M1 open questions / blockers**
+
+No implementation or schema questions remain. Local Docker-backed gitleaks, image build, and verification-bundle generation remain blocked by the unavailable Docker daemon; CI is the approved G2 gate for the first two. M6 has not started and requires its own plan-only PR after M1 completes its review sequence.
 
 ### M2. Lead sync
 
