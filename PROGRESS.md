@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M2 · **Current gate:** G0 awaiting approval · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M2 · **Current gate:** G1 passed; awaiting G2 CI · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -12,7 +12,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 |---|---|---|---|---|---|---|---|---|
 | M0 Repo bootstrap | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #1 merged; M0.9 follow-up in PR #2 |
 | M1 Core library | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #3 merged; G3 PASS at `45a022b4` |
-| M2 Lead sync | ◐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | G0 plan in draft PR |
+| M2 Lead sync | ☑ | ☑ | ☐ | ☐ | ☐ | ☐ | ☐ | PR #5; G1 green |
 | M3 Booking sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M4 Packaging | ☐ | ☐ | ☐ | ☐ | ☐ | n/a | n/a | |
 | M5 Deploy tooling | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
@@ -255,10 +255,10 @@ No implementation or schema questions remain. The earlier local Docker blocker i
 | Task | Status | PR | Notes |
 |---|---|---|---|
 | M2.1 Turnstile siteverify | ☐ | deferred | Outside the requested cursor/upsert slice; see the G0 open question. |
-| M2.2 Zoho OAuth and Lead upsert client | ◐ | draft | US OAuth refresh and CRM API hosts, in-memory token cache, guarded upsert only. |
-| M2.3 Configured lead-to-Zoho mapping | ◐ | draft | Confirmed field API names in version-controlled TOML; no credentials or customer values. |
-| M2.4 Cursor-based lead sync job | ◐ | draft | New rows by stable cursor, batch ≤25, lock/claim safety, audit idempotency. |
-| M2.5 Synthetic unit and contract tests | ◐ | draft | No live Supabase, Zoho, credentials, or network calls. |
+| M2.2 Zoho OAuth and Lead upsert client | ☑ | #5 | US OAuth refresh and CRM API hosts, in-memory token cache, guarded upsert only. |
+| M2.3 Configured lead-to-Zoho mapping | ☑ | #5 | Confirmed field API names in version-controlled TOML; no credentials or customer values. |
+| M2.4 Predicate-based lead sync job | ☑ | #5 | Authoritative unsynced/attempt predicate, batch ≤25, lock/claim safety, audit idempotency. |
+| M2.5 Synthetic unit and contract tests | ☑ | #5 | No live Supabase, Zoho, credentials, or network calls. |
 
 ### M2 G0 plan (2026-09-19)
 
@@ -291,6 +291,15 @@ Open questions: implementation is blocked until Rehaan supplies two redacted, no
 **Post-approval contract amendment (2026-09-19):** Rehaan supplied the redacted authoritative `public.leads` contract and Zoho mapping after approving G0. It supersedes the high-water-cursor paragraphs above: there is no dedicated cursor and M2 will not read or write `integration_state`. The work predicate is `crm_synced = false AND coalesce(is_test, false) = false AND crm_sync_attempts < 10`, ordered by `created_at ASC, id ASC`, limited to the configured batch maximum (never over 25), and locked with `FOR UPDATE SKIP LOCKED`; when `ALLOW_TEST_SYNC=true`, test rows may enter the same bounded work set. Success sets `crm_synced=true`, `crm_synced_at=now()`, and `zoho_lead_id` to the returned Zoho id. Failure leaves `crm_synced=false`, increments `crm_sync_attempts`, and stores only a bounded/redacted error class in `crm_last_error`. The human-applied migration adds `is_test`, `crm_synced_at`, and `zoho_lead_id`; this repository neither drafts nor runs it. Dry run and kill-switch paths still create `skipped` audit evidence with zero HTTP but make no `leads` write-back. The deployed input columns are `id`, `created_at`, `name`, `email`, `company`, `headcount_band`, `systems_named`, `calculator_annual_estimate`, all five `utm_*` fields, `referrer`, `page_path`, `crm_synced`, `crm_sync_attempts`, and `crm_last_error`; there is no source/role/handoff column and none will be guessed.
 
 The authoritative mapping is: UUID → unique custom `supabase_lead_id`; split `name` on the first space into `First_Name`/required `Last_Name` (single word entirely to `Last_Name`); `email` → `Email`; company or email-domain fallback → required `Company`; headcount, systems, annual estimate, page path, and non-empty UTM values → a deterministic labeled `Description`; optional `Lead_Source="Website"` controlled by mapping configuration so it is omitted if the picklist lacks that value. Upsert uses `/crm/v8/Leads/upsert` with `duplicate_check_fields=["supabase_lead_id"]`. Rehaan confirmed the existing self-client currently has `ZohoCRM.modules.ALL,ZohoCRM.settings.ALL`, which is broader than this code needs; M2 does not add or inspect scopes and will call only OAuth refresh and Lead upsert, never settings metadata. The earlier deferrals are confirmed by G0 approval. All prerequisite questions are resolved; the implementation may proceed. Because this amendment removes the planned state write and adds no dependency, host, scope, write, file, or protected path, AGENTS.md 3.2 does not require another approval.
+
+**M2 G1 evidence (2026-09-19)**
+
+- Implementation commit: `a417ba2` (`M2: implement guarded lead upsert`). Protected changes are limited to the approved `src/tis/http.py` and `scripts/guard.py`; the runtime and static egress allowlists contain exactly `uptime.betterstack.com`, `us.i.posthog.com`, `accounts.zoho.com`, and `www.zohoapis.com`.
+- `make check` in clean detached worktree `C:\Rehaan Projects\torus-integration-m2-check` at `a417ba2`: PASS. Ruff lint and format passed; mypy passed for 17 source files; pytest passed 141 tests with no skips/xfails and 90.51% total coverage (`jobs/lead_sync.py` 90%, `mapping/lead_to_zoho.py` 97%, `integrations/zoho.py` 85%); guard passed and reported only the two approved protected files; pip-audit found no known vulnerabilities; the license gate passed; gitleaks found no leaks; the pinned Docker image built successfully.
+- Safety evidence: synthetic tests prove dry run records one `skipped` audit tuple and makes zero HTTP or source-row writes; the guarded Zoho upsert uses `(zoho, <Supabase UUID>, upsert_lead)` plus Zoho's `supabase_lead_id` duplicate field; bounded retry covers invalid tokens and 429s; a duplicate/concurrent audit claim increments the source attempt counter rather than creating an infinite retry; the source predicate excludes test rows by default and caps attempts below 10.
+- Decisions: the authoritative source predicate replaces the originally planned `integration_state` high-water cursor; no cursor state is read or written. `Lead_Source=Website` remains mapping-configurable so it can be omitted if the Zoho picklist lacks that value. The supplied existing OAuth scopes are accepted as external account state but are not expanded, inspected, or exercised beyond token refresh and Lead upsert.
+- Deviations from approved G0: the post-approval source/Zoho contract removed the planned cursor state write and substituted the authoritative source-row status write-back, as documented above. `tests/unit/test_betterstack.py` was added to the planned file list before implementation because its exact allowlist assertion necessarily changed. No dependency, egress host, scope, external write, protected path, or other file changed outside the amended plan.
+- Open questions: before enabling M2 in any environment, Rehaan must confirm the custom Zoho field API name is exactly `supabase_lead_id`, confirm the `Website` Lead Source picklist value or remove it from the mapping, and confirm the human-applied source-table migration has added `is_test`, `crm_synced_at`, and `zoho_lead_id`. G4/G5 remain blocked until those human checks and the normal G2/G3 gates complete.
 
 **G4 dry run (Rehaan)**
 
