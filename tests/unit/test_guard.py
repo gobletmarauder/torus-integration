@@ -98,14 +98,30 @@ def test_forbidden_network_imports_fail(tmp_path: Path, module: str) -> None:
     assert "NET001" in result.stdout
 
 
-@pytest.mark.parametrize("module", ["httpx", "urllib3", "websockets", "smtplib", "ftplib"])
-def test_http_module_is_the_only_network_import_exception(tmp_path: Path, module: str) -> None:
+def test_http_module_is_the_only_httpx_import_exception(tmp_path: Path) -> None:
+    base = initialize_repository(tmp_path)
+    write(
+        tmp_path,
+        "src/tis/http.py",
+        "im"
+        + "port httpx\nEGRESS_ALLOWLIST = frozenset({'uptime.betterstack.com', "
+        + "'us.i.posthog.com'})\n",
+    )
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 0
+
+
+@pytest.mark.parametrize("module", ["requests", "urllib3", "websockets", "smtplib", "ftplib"])
+def test_http_module_rejects_other_network_clients(tmp_path: Path, module: str) -> None:
     base = initialize_repository(tmp_path)
     write(tmp_path, "src/tis/http.py", "im" + f"port {module}\n")
 
     result = guard(tmp_path, base)
 
-    assert result.returncode == 0
+    assert result.returncode == 1
+    assert "NET001" in result.stdout
 
 
 def test_literal_false_is_the_only_allowed_shell_value(tmp_path: Path) -> None:
@@ -176,6 +192,31 @@ def test_hardcoded_url_fails(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "NET002" in result.stdout
+
+
+def test_service_url_literal_outside_http_module_fails(tmp_path: Path) -> None:
+    base = initialize_repository(tmp_path)
+    value = "https" + "://us.i.posthog.com/capture"
+    write(tmp_path, "src/tis/module.py", f"VALUE = {value!r}\n")
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 1
+    assert "NET003" in result.stdout
+
+
+def test_runtime_and_guard_egress_allowlists_must_match(tmp_path: Path) -> None:
+    base = initialize_repository(tmp_path)
+    write(
+        tmp_path,
+        "src/tis/http.py",
+        "EGRESS_ALLOWLIST: frozenset[str] = frozenset({'different.example'})\n",
+    )
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 1
+    assert "NET004" in result.stdout
 
 
 @pytest.mark.parametrize(

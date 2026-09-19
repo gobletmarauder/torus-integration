@@ -43,7 +43,12 @@ EXCLUDED_PARTS = {
     ".ruff_cache",
     "__pycache__",
 }
-ALLOWED_URL_HOSTS: frozenset[str] = frozenset()
+ALLOWED_URL_HOSTS: frozenset[str] = frozenset(
+    {
+        "uptime.betterstack.com",
+        "us.i.posthog.com",
+    }
+)
 URL_PATTERN = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
 ENCODED_PATTERN = re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{201,}={0,2}(?![A-Za-z0-9+/])")
 SQL_PATTERN = re.compile(
@@ -135,7 +140,7 @@ class PythonPolicyVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _check_import(self, node: ast.AST, module: str) -> None:
-        if self.path == "src/tis/http.py":
+        if self.path == "src/tis/http.py" and (module == "httpx" or module.startswith("httpx.")):
             return
         if any(module == item or module.startswith(f"{item}.") for item in FORBIDDEN_IMPORTS):
             self.add(node, "NET001", "network import is permitted only in src/tis/http.py")
@@ -147,7 +152,11 @@ class PythonPolicyVisitor(ast.NodeVisitor):
             self.add(node, "SQL001", "destructive SQL token is forbidden")
         for match in URL_PATTERN.finditer(value):
             host = (urlsplit(match.group(0)).hostname or "").lower()
-            if host not in ALLOWED_URL_HOSTS:
+            if host in ALLOWED_URL_HOSTS and self.path != "src/tis/http.py":
+                self.add(
+                    node, "NET003", "service URL literals are permitted only in src/tis/http.py"
+                )
+            elif host not in ALLOWED_URL_HOSTS:
                 self.add(node, "NET002", "hardcoded URL host is not allowlisted")
 
 
@@ -204,7 +213,16 @@ def scan_text(path: Path, root: Path, text: str) -> list[Finding]:
             )
         for match in URL_PATTERN.finditer(line):
             host = (urlsplit(match.group(0)).hostname or "").lower()
-            if host not in ALLOWED_URL_HOSTS:
+            if host in ALLOWED_URL_HOSTS and relative != "src/tis/http.py":
+                findings.append(
+                    Finding(
+                        relative,
+                        line_number,
+                        "NET003",
+                        "service URL literals are permitted only in src/tis/http.py",
+                    )
+                )
+            elif host not in ALLOWED_URL_HOSTS:
                 findings.append(
                     Finding(
                         relative, line_number, "NET002", "hardcoded URL host is not allowlisted"
@@ -302,7 +320,51 @@ def scan_repository(root: Path, base: str | None) -> tuple[list[Finding], list[s
             )
         )
     protected = sorted(path for path in changed if is_protected(path))
+    runtime_http = root / "src" / "tis" / "http.py"
+    if runtime_http.is_file():
+        runtime_hosts = read_runtime_allowlist(runtime_http)
+        if runtime_hosts != ALLOWED_URL_HOSTS:
+            findings.append(
+                Finding(
+                    "src/tis/http.py",
+                    1,
+                    "NET004",
+                    "runtime and guard egress allowlists differ",
+                )
+            )
     return sorted(set(findings)), protected
+
+
+def read_runtime_allowlist(path: Path) -> frozenset[str] | None:
+    """Read only the literal EGRESS_ALLOWLIST assignment from the protected HTTP module."""
+    text = read_text(path)
+    if text is None:
+        return None
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return None
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        if not any(
+            isinstance(target, ast.Name) and target.id == "EGRESS_ALLOWLIST" for target in targets
+        ):
+            continue
+        value = node.value
+        if not isinstance(value, ast.Call) or not value.args:
+            return None
+        literal = value.args[0]
+        if not isinstance(literal, (ast.Set, ast.List, ast.Tuple)):
+            return None
+        hosts = {
+            element.value
+            for element in literal.elts
+            if isinstance(element, ast.Constant) and isinstance(element.value, str)
+        }
+        return frozenset(hosts)
+    return None
 
 
 def parse_args() -> argparse.Namespace:
