@@ -27,7 +27,7 @@ SELECT id, created_at, name, email, company, headcount_band, systems_named,
 FROM leads
 WHERE crm_synced = false
   AND crm_sync_attempts < 10
-  AND (COALESCE(is_test, false) = false OR %s)
+  AND COALESCE(is_test, false) = false
 ORDER BY created_at ASC, id ASC
 LIMIT %s
 FOR UPDATE SKIP LOCKED
@@ -48,7 +48,7 @@ WHERE id = %s AND crm_synced = false
 class LeadStore(Protocol):
     """Persistence contract for bounded lead work and write-back."""
 
-    async def pending(self, *, batch_size: int, allow_test: bool) -> list[LeadRow]:
+    async def pending(self, *, batch_size: int) -> list[LeadRow]:
         """Return one locked, ordered work page."""
 
     async def mark_success(self, lead_id: UUID, zoho_id: str) -> None:
@@ -64,10 +64,10 @@ class PostgresLeadStore:
     def __init__(self, database: Database) -> None:
         self._database = database
 
-    async def pending(self, *, batch_size: int, allow_test: bool) -> list[LeadRow]:
+    async def pending(self, *, batch_size: int) -> list[LeadRow]:
         """Select at most 25 eligible rows with skip-locked ordering."""
         limit = min(max(batch_size, 1), MAX_BATCH_SIZE)
-        rows = await self._database.fetch_all(_SELECT_PENDING, (allow_test, limit))
+        rows = await self._database.fetch_all(_SELECT_PENDING, (limit,))
         return _LEAD_ROWS.validate_python(rows)
 
     async def mark_success(self, lead_id: UUID, zoho_id: str) -> None:
@@ -101,12 +101,11 @@ class LeadSyncContext:
     api_url: str
     api_version: str = "v8"
     batch_size: int = MAX_BATCH_SIZE
-    allow_test: bool = False
 
 
 async def run(ctx: LeadSyncContext) -> JobResult:
     """Process one bounded page; this may write to Zoho and lead status columns."""
-    leads = await ctx.store.pending(batch_size=ctx.batch_size, allow_test=ctx.allow_test)
+    leads = await ctx.store.pending(batch_size=ctx.batch_size)
     succeeded = skipped = failed = 0
     for lead in leads:
         try:

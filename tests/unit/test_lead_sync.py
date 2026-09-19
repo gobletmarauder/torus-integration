@@ -69,7 +69,7 @@ class Store:
         self.successes: list[tuple[UUID, str]] = []
         self.failures: list[tuple[UUID, str]] = []
 
-    async def pending(self, *, batch_size: int, allow_test: bool) -> list[LeadRow]:
+    async def pending(self, *, batch_size: int) -> list[LeadRow]:
         assert batch_size <= 25
         return self.rows
 
@@ -174,9 +174,10 @@ class Database:
 async def test_postgres_store_uses_bounded_skip_locked_query_and_fixed_updates() -> None:
     database = Database()
     store = PostgresLeadStore(database)  # type: ignore[arg-type]
-    rows = await store.pending(batch_size=100, allow_test=False)
+    rows = await store.pending(batch_size=100)
     assert rows[0].id == LEAD_ID
-    assert database.parameters == (False, 25)
+    assert database.parameters == (25,)
+    assert "COALESCE(is_test, false) = false" in database.query
     assert "FOR UPDATE SKIP LOCKED" in database.query
     assert "ORDER BY created_at ASC, id ASC" in database.query
     assert str(LEAD_ID) not in database.query

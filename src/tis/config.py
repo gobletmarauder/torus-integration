@@ -44,7 +44,6 @@ class Settings(BaseSettings):
     zoho_api_url: HttpUrl | None = None
     zoho_api_version: Literal["v8"] = "v8"
     zoho_lead_field_map_path: Path = Path("config/zoho_lead_fields.toml")
-    allow_test_sync: bool = False
 
     @model_validator(mode="after")
     def require_safe_dry_run(self) -> Settings:
