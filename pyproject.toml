@@ -3,7 +3,14 @@ name = "torus-integration-service"
 version = "0.0.0"
 description = "Torus Integration Service"
 requires-python = "==3.12.*"
-dependencies = []
+dependencies = [
+    "httpx==0.28.1",
+    "pydantic==2.13.5",
+    "psycopg==3.3.6",
+    "psycopg-binary==3.3.6",
+    "psycopg-pool==3.3.2",
+    "pydantic-settings==2.15.0",
+]
 
 [tool.uv]
 package = false
@@ -15,6 +22,7 @@ dev = [
   "pip-licenses==5.5.5",
   "pytest==9.0.3",
   "pytest-cov==7.1.0",
+  "respx==0.23.1",
   "ruff==0.16.8",
 ]
 
