@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M0.9 · **Current gate:** G1 blocked on local Docker Desktop · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M1 · **Current gate:** G3 review · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -11,7 +11,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 | Milestone | G0 Plan | G1 Local | G2 CI | G3 Claude | G4 Dry run | G5 Live | G6 Burn-in | Bundle / PR |
 |---|---|---|---|---|---|---|---|---|
 | M0 Repo bootstrap | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #1 merged; M0.9 follow-up in PR #2 |
-| M1 Core library | ☐ | ☐ | ☐ | ☐ | n/a | n/a | n/a | |
+| M1 Core library | ☑ | ☑ | ☑ | ☐ | n/a | n/a | n/a | PR #3; local checks and CI green; verification bundle pending |
 | M2 Lead sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M3 Booking sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M4 Packaging | ☐ | ☐ | ☐ | ☐ | ☐ | n/a | n/a | |
@@ -39,7 +39,7 @@ Legend: ☐ not started · ◐ in progress · ☑ passed · ✖ failed (see inci
 | M0.6 CODEOWNERS, PR template | ☑ | #1 merged | Ownership and required evidence/security/deviation prompts added. |
 | M0.7 .env.example, .sops.yaml | ☑ | #1 merged | Setting names are documented without values; SOPS policy is a non-key placeholder. |
 | M0.8 PROGRESS.md initialized | ☑ | #1 merged | M0 status, G1 evidence, decisions, open questions, and protected hashes recorded. |
-| M0.9 Verification and workflow integrity fixes | ◐ | #2 | Implementation and hosted CI are green; local G1 and bundle are blocked by a Docker Desktop startup failure. |
+| M0.9 Verification and workflow integrity fixes | ☑ | #2 merged | G3 PASS accepted from PR diff and green CI because local Docker was unavailable; all seven required findings resolved. |
 
 **G0 plan**
 
@@ -155,6 +155,9 @@ Result: BLOCKED by the local Docker Desktop installation; G1 is not marked passe
 - hosted CI run 35395117127 at head 649a26e: passed both jobs; make check, real Docker build, gitleaks, Trivy, and CycloneDX SBOM all passed
 - make verify-bundle MILESTONE=M0.9: started successfully after the portable Makefile fix, then was interrupted after the unavailable Docker engine left its first Docker call blocked; no M0.9 bundle was emitted
 ```
+G3 VERDICT: PASS (M0.9)
+Bundle: not generated (local Docker down); verified from PR #2 diff + green CI at c4de8de.
+All 7 required M0.9 items confirmed. No secrets, no production writes. Merge approved.
 
 **M0.9 decisions made**
 
@@ -170,7 +173,63 @@ No implementation questions. Local G1 and `make verify-bundle MILESTONE=M0.9` re
 
 ### M1. Core library
 
-(same structure: tasks table, G0 plan, G1 evidence, G3 verdict, decisions, deferred)
+**Tasks**
+
+| Task | Status | PR | Notes |
+|---|---|---|---|
+| M1.1 Configuration and safe defaults | ☑ | #3 | Exact runtime pins, typed environment settings, safe dry-run invariant, job flags, and positive budgets implemented. |
+| M1.2 Controlled HTTP client | ☑ | #3 | Exact two-host allowlist, redirect revalidation, ten-second timeout, and bounded idempotent retry implemented. |
+| M1.3 Structured redacted logging | ☑ | #3 | JSON logging, correlation ids, and recursive secret/PII redaction implemented and tested. |
+| M1.4 Async database pool and helpers | ☑ | #3 | Lazy Psycopg async pool, transaction rollback, fixed parameterized queries, and ten-second statement timeout implemented. |
+| M1.5 Integration state and kill switch | ☑ | #3 | Authoritative JSON state contract, UTC last-run values, and 15-second kill-switch cache implemented. |
+| M1.6 External-write guard | ☑ | #3 | Dry run, kill switch, atomic idempotency claim, audit statuses, and per-run/per-day budgets implemented. |
+| M1.7 Better Stack and PostHog helpers | ☑ | #3 | Pydantic outgoing payloads and guarded heartbeat/capture helpers implemented with synthetic-only tests. |
+
+### M1 G0 plan (2026-09-18)
+
+Scope: M1.1, M1.2, M1.3, M1.4, M1.5, M1.6, and M1.7. Build the typed configuration, controlled HTTP, structured logging, async database, state/kill-switch, external-write guard, Better Stack heartbeat, and PostHog capture foundations required by later jobs. This is a plan-only change; implementation stops until Rehaan comments `G0 approved` on the draft PR.
+
+Files to create/modify: create `src/tis/config.py`, `src/tis/errors.py`, `src/tis/http.py`, `src/tis/log.py`, `src/tis/db.py`, `src/tis/state.py`, `src/tis/guards.py`, `src/tis/integrations/betterstack.py`, `src/tis/integrations/posthog.py`, `tests/conftest.py`, `tests/unit/test_config.py`, `tests/unit/test_http.py`, `tests/unit/test_log.py`, `tests/unit/test_db.py`, `tests/unit/test_state.py`, `tests/unit/test_guards.py`, `tests/unit/test_betterstack.py`, `tests/unit/test_posthog.py`, `docs/runbooks/core-library.md`, and `docs/pr-notes/M1.md`; modify `pyproject.toml`, `uv.lock`, `.env.example`, `docs/dependencies.md`, `scripts/guard.py`, `tests/unit/test_guard.py`, and `PROGRESS.md`. No workflow, deployment, infrastructure, secret, SOPS, API, mapping, scheduler, or job files will change.
+
+Protected paths touched: yes (`src/tis/http.py`, `src/tis/guards.py`, and `scripts/guard.py`). The implementation PR must carry `protected-change`. `AGENTS.md`, `.github/**`, `deploy/**`, `infra/**`, `.sops.yaml`, `secrets/**`, and `scripts/verify_bundle.sh` will not change.
+
+New dependencies: runtime dependencies will be exact-pinned as `pydantic==2.13.5` (MIT; explicit external-payload and configuration models; relying on an unpinned transitive install was rejected because every runtime dependency must be reviewable), `pydantic-settings==2.15.0` (MIT; typed environment configuration; a hand-written environment parser was rejected because it would duplicate validation and error reporting), `httpx==0.28.1` (BSD-3-Clause; the required async HTTP client; aiohttp and requests are disallowed by repository policy), `psycopg==3.3.6` (LGPL-3.0-only; required Psycopg 3 async database interface; asyncpg was rejected because the master plan specifies Psycopg and its pool), `psycopg-binary==3.3.6` (LGPL-3.0-only; deterministic prebuilt libpq implementation for CI/runtime; a source build was rejected because the final image must not contain compilers), and `psycopg-pool==3.3.2` (LGPL-3.0-only; async connection pooling; a custom pool was rejected as unsafe concurrency infrastructure). The exact-pinned test dependency will be `respx==0.23.1` (BSD-3-Clause; blocks and asserts HTTPX calls in tests; hand-written transports alone were rejected because request routing and no-unexpected-network assertions would be weaker). `docs/dependencies.md` and `uv.lock` will record every direct pin and the resolved transitive graph. No GPL or AGPL dependency will be added.
+
+New egress hosts: exactly `us.i.posthog.com` for server-side PostHog capture and `uptime.betterstack.com` for heartbeat delivery, with no schemes, paths, ports, wildcards, suffix matching, or additional hosts. `src/tis/http.py` will enforce those two normalized hostnames on the initial request and every redirect. `scripts/guard.py` will retain `httpx` as a forbidden import everywhere except `src/tis/http.py`, mirror the two-host allowlist only for that protected module, and fail when the runtime and guard allowlists drift or when another module imports `httpx` or hardcodes either service URL. The current baseline has no `httpx` import under `src/tis`; only the planted guard fixtures mention it. Tests will use reserved synthetic hosts and `respx`; they will make no real network calls. No Supabase REST, Zoho, Google, Turnstile, Cloudflare API, LinkedIn, or other HTTP host will be added.
+
+New scopes/privileges: none. No OAuth scope, GitHub permission, database role, RLS policy, schema privilege, Cloudflare token permission, or host capability changes are included. Database access remains through the configured `tis_service` DSN and is limited in code to parameterized helper statements for `integration_log` and `integration_state`; no migration or schema SQL will be executed.
+
+External writes added: (1) PostHog event capture through `@external_write(source="posthog", action="capture", key=...)`; the idempotency key is the stable event name plus caller-provided external id, falling back only to the per-run correlation id for run-level events, with budgets of 25 events per run and 200 per UTC day. (2) Better Stack heartbeat delivery through `@external_write(source="betterstack", action="heartbeat", key=...)`; the idempotency key is job/monitor name plus run correlation id, with budgets of 10 heartbeats per run and 400 per UTC day so the later five-minute health schedule can operate without bypassing a budget. Both helpers use only `tis.http`, honor kill switch and dry run, and write `skipped` audit rows without making HTTP calls when blocked. The decorator’s own bounded, parameterized `integration_log` idempotency/audit upserts and `integration_state` control writes are internal safety-state operations and cannot recursively decorate themselves; tests will constrain them to those two tables and prove rollback on failure.
+
+Tests: configuration tests will prove `DRY_RUN` defaults to `true`, cannot become false in `dev`, requires an explicit false value in `prod`, validates positive budgets, and exposes per-job enable flags without reading any real environment file. HTTP tests will plant allowed and denied hosts, reject redirect escapes, assert the ten-second default timeout, retry only idempotent requests on 429/5xx with bounded jitter/backoff, never retry unsafe requests implicitly, raise typed `EgressDenied`/`ExternalError`, and prove logs redact authorization/cookie headers, sensitive query values, and request/response bodies. Logging tests will capture JSON output and prove raw email local parts, names, phone numbers, tokens, message bodies, and note bodies never appear while email domains and correlation ids remain. Database/state tests will use fakes only (no real database), assert async pool configuration and ten-second statement timeout, parameterized fixed SQL, transaction rollback, 15-second kill-switch caching, key/value state, and UTC last-run stamps. External-write guard tests will prove kill switch, dry run, budget exhaustion, duplicate idempotency, success, and downstream-error paths; dry run must assert zero HTTP calls and one `skipped` audit row, kill switch must block before the wrapped function, duplicates must not call it, and failures must produce the appropriate typed error/audit status without consuming a success. Repository guard tests will plant `httpx` imports in every disallowed location, preserve the sole positive case in `src/tis/http.py`, detect any difference between the exact runtime and static two-host allowlists, and reject service URL literals outside `src/tis/http.py`. Better Stack/PostHog tests will use `respx` to prove exact allowlisted requests, synthetic payload models, idempotency keys, budgets, retry/error handling, and redacted logs. An autouse test fixture will deny unexpected network access. No Docker or Terraform command is part of G0 planning; implementation must still follow the binding G1/G2 gates, with CI serving as G2 rather than as a silent replacement for a repository check. `make check` must remain green with at least 85% coverage for the new core modules and no skipped or xfailed tests.
+
+Rollback: before merge, revert the M1 implementation commits or close the PR. After merge, use a normal revert PR for the M1 commits and restore the previous lockfile. M1 will not deploy, execute migrations, call production endpoints, or change external-system records; with `DRY_RUN=true` as the default, later callers remain write-disabled until an explicit production setting and all subsequent gates permit them.
+
+Open questions: before M1.4/M1.6 implementation, Rehaan must provide or confirm the redacted column contract for the existing `integration_log` and `integration_state` tables (column names/types, allowed status values, timestamps, and conflict keys) without sharing a connection string or production rows. The master plan defines the unique key `(source, external_id, action)` and required state keys but not the complete columns. If the tables do not yet exist, a separate approved plan will be required to add a human-applied SQL draft under `docs/sql/`; M1 will not guess or execute a schema. This amendment adds the direct `pydantic` pin and the protected `scripts/guard.py` scope after the first approval, so a fresh `G0 approved` comment is required. M6 is intentionally not planned or implemented in this PR because `docs/MASTER-PLAN.md` requires one milestone at a time; its protected Terraform G0 begins only after the preceding milestone sequence permits it.
+
+**M1 G1 evidence (2026-09-19)**
+
+- Fresh `G0 approved` was confirmed on PR #3 after the direct `pydantic` and protected `scripts/guard.py` amendment.
+- Rehaan supplied the authoritative redacted contracts for `public.integration_log` and `public.integration_state`; no production rows or credentials were used.
+- `uv run ruff check .`: PASS; `uv run ruff format --check .`: PASS (39 files formatted); `uv run mypy src/tis`: PASS (14 source files).
+- `uv run pytest`: PASS, 90 tests, no skips or xfails, 90.12% total coverage (`db` 86%, `guards` 94%, `http` 89%, `state` 95%). Tests use synthetic values and an autouse RESPX router that rejects every unmocked HTTP request.
+- `uv run python scripts/guard.py`: PASS; reports the three approved protected paths (`scripts/guard.py`, `src/tis/guards.py`, `src/tis/http.py`). `rg` confirms `src/tis/http.py` is the only file that imports `httpx` directly.
+- `uv run pip-audit`: PASS, no known vulnerabilities. `uv run pip-licenses --fail-on=...`: PASS; no GPL/AGPL package rejected.
+- `make check`: reached the containerized gitleaks step after all preceding checks passed, then failed because the local Docker Desktop Linux engine pipe does not exist. Native `gitleaks` is not installed, and the Docker image build therefore also could not run. Per the approved instruction, Codex did not wait for or attempt to repair Docker; G2 CI remains the container/gitleaks gate. Local G1 stays partial until those two Docker-backed checks run.
+- G2 CI run `35425097047`: PASS. The `checks` job installed the frozen dependency graph, ran G1 checks, built the image, passed the fixable HIGH/CRITICAL Trivy gate, generated the CycloneDX SBOM, and uploaded it. The conditional Terraform job also passed with its Terraform steps correctly skipped because M1 has no infrastructure files.
+- `make verify-bundle MILESTONE=M1`: failed immediately when `scripts/verify_bundle.sh` could not connect to the local Docker API; no bundle file was emitted or committed.
+- After Docker Desktop became available, `make check`: PASS end to end. The containerized gitleaks scan inspected approximately 884 KB with no leaks, and the local `tis:local` Docker image built successfully.
+
+**M1 decisions made**
+
+- The supplied `Prefer: resolution=merge-duplicates` instruction is a Supabase REST header. Because M1 approved Psycopg and no Supabase HTTP egress host, the implementation uses the equivalent parameterized PostgreSQL `ON CONFLICT (source, external_id, action)` path and records this interpretation in `docs/pr-notes/M1.md`.
+- A live write first makes an atomic `integration_log` claim using the authoritative unique key. An existing `ok` or in-progress claim cannot execute twice; prior `error` or dry-run `skipped` rows may be reclaimed safely.
+- Better Stack endpoint paths can contain monitor credentials, so HTTP logs redact all non-root URL paths in addition to sensitive headers, query parameters, and every request/response body.
+- The static guard mirrors the exact runtime allowlist, fails on drift, and permits only the `httpx` client import in `src/tis/http.py`; other network clients remain forbidden even in that module.
+
+**M1 open questions / blockers**
+
+No implementation or schema questions remain. The earlier local Docker blocker is resolved. M6 has not started and requires its own plan-only PR after M1 completes its review sequence.
 
 ### M2. Lead sync
 
