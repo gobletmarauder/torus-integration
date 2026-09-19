@@ -68,6 +68,23 @@ async def test_unsafe_request_is_not_retried(respx_mock: object) -> None:
     assert route.call_count == 1
 
 
+async def test_form_body_and_explicit_error_status_are_returned_without_retry(
+    respx_mock: object,
+) -> None:
+    route = respx_mock.post(url("allowed.example", "/form")).mock(  # type: ignore[attr-defined]
+        return_value=MockResponse(400, json={"code": "synthetic"})
+    )
+    async with ControlledClient(allowlist=TEST_HOSTS) as http:
+        response = await http.request(
+            "POST",
+            url("allowed.example", "/form"),
+            data={"credential": "synthetic"},
+            accepted_statuses=frozenset({400}),
+        )
+    assert response.status_code == 400
+    assert route.call_count == 1
+
+
 async def test_transport_failure_becomes_typed_error(respx_mock: object) -> None:
     route = respx_mock.get(url("allowed.example", "/fail")).mock(  # type: ignore[attr-defined]
         side_effect=http_module.httpx.ConnectError("synthetic")

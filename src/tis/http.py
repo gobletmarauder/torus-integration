@@ -14,8 +14,10 @@ from tis.log import get_logger, redact
 
 EGRESS_ALLOWLIST: frozenset[str] = frozenset(
     {
+        "accounts.zoho.com",
         "uptime.betterstack.com",
         "us.i.posthog.com",
+        "www.zohoapis.com",
     }
 )
 DEFAULT_TIMEOUT_SECONDS = 10.0
@@ -82,6 +84,8 @@ class ControlledClient:
         *,
         headers: Mapping[str, str] | None = None,
         json: Any = None,
+        data: Mapping[str, str] | None = None,
+        accepted_statuses: frozenset[int] = frozenset(),
     ) -> httpx.Response:
         """Send an allowlisted request; this performs outbound network I/O."""
         normalized_method = method.upper()
@@ -93,9 +97,10 @@ class ControlledClient:
                 current_url,
                 headers=headers,
                 json=json,
+                data=data,
             )
             if response.status_code not in _REDIRECT_STATUSES:
-                if response.status_code >= 400:
+                if response.status_code >= 400 and response.status_code not in accepted_statuses:
                     raise ExternalError(f"external service returned HTTP {response.status_code}")
                 return response
             location = response.headers.get("location")
@@ -104,7 +109,7 @@ class ControlledClient:
             current_url = self._check_url(response.url.join(location))
             redirects += 1
             if response.status_code == 303:
-                normalized_method, json = "GET", None
+                normalized_method, json, data = "GET", None, None
 
     async def _request_with_retry(
         self,
@@ -113,6 +118,7 @@ class ControlledClient:
         *,
         headers: Mapping[str, str] | None,
         json: Any,
+        data: Mapping[str, str] | None,
     ) -> httpx.Response:
         attempts = MAX_ATTEMPTS if method in _IDEMPOTENT_METHODS else 1
         for attempt in range(attempts):
@@ -127,7 +133,9 @@ class ControlledClient:
                         }
                     },
                 )
-                response = await self._client.request(method, url, headers=headers, json=json)
+                response = await self._client.request(
+                    method, url, headers=headers, json=json, data=data
+                )
             except httpx.HTTPError as error:
                 if attempt + 1 == attempts:
                     raise ExternalError("external request failed") from error

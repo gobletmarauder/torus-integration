@@ -104,8 +104,8 @@ def test_http_module_is_the_only_httpx_import_exception(tmp_path: Path) -> None:
         tmp_path,
         "src/tis/http.py",
         "im"
-        + "port httpx\nEGRESS_ALLOWLIST = frozenset({'uptime.betterstack.com', "
-        + "'us.i.posthog.com'})\n",
+        + "port httpx\nEGRESS_ALLOWLIST = frozenset({'accounts.zoho.com', "
+        + "'uptime.betterstack.com', 'us.i.posthog.com', 'www.zohoapis.com'})\n",
     )
 
     result = guard(tmp_path, base)

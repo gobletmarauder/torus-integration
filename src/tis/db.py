@@ -25,6 +25,9 @@ class Database(Protocol):
     async def fetch_value(self, query: str, parameters: Sequence[Any]) -> Any:
         """Fetch the first value from a fixed parameterized statement."""
 
+    async def fetch_all(self, query: str, parameters: Sequence[Any]) -> list[Mapping[str, Any]]:
+        """Fetch all mappings from a fixed parameterized statement."""
+
 
 async def _configure(connection: AsyncConnection[dict[str, Any]]) -> None:
     await connection.execute(f"SET statement_timeout = {STATEMENT_TIMEOUT_MS}")
@@ -73,3 +76,9 @@ class PsycopgDatabase:
         """Fetch the first column of one row from a fixed parameterized statement."""
         row = await self.fetch_one(query, parameters)
         return next(iter(row.values())) if row else None
+
+    async def fetch_all(self, query: str, parameters: Sequence[Any]) -> list[Mapping[str, Any]]:
+        """Fetch all rows from a fixed parameterized statement."""
+        async with self.connection() as connection:
+            cursor = await connection.execute(query, parameters)
+            return list(await cursor.fetchall())

@@ -45,8 +45,10 @@ EXCLUDED_PARTS = {
 }
 ALLOWED_URL_HOSTS: frozenset[str] = frozenset(
     {
+        "accounts.zoho.com",
         "uptime.betterstack.com",
         "us.i.posthog.com",
+        "www.zohoapis.com",
     }
 )
 URL_PATTERN = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
