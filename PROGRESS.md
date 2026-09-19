@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M1 · **Current gate:** G3 bundle blocked (local Docker unavailable) · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M1 · **Current gate:** G3 review · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -11,7 +11,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 | Milestone | G0 Plan | G1 Local | G2 CI | G3 Claude | G4 Dry run | G5 Live | G6 Burn-in | Bundle / PR |
 |---|---|---|---|---|---|---|---|---|
 | M0 Repo bootstrap | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #1 merged; M0.9 follow-up in PR #2 |
-| M1 Core library | ☑ | ◐ | ☑ | ☐ | n/a | n/a | n/a | PR #3; CI run 35425097047 green; local bundle blocked by Docker |
+| M1 Core library | ☑ | ☑ | ☑ | ☐ | n/a | n/a | n/a | PR #3; local checks and CI green; verification bundle pending |
 | M2 Lead sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M3 Booking sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M4 Packaging | ☐ | ☐ | ☐ | ☐ | ☐ | n/a | n/a | |
@@ -218,6 +218,7 @@ Open questions: before M1.4/M1.6 implementation, Rehaan must provide or confirm 
 - `make check`: reached the containerized gitleaks step after all preceding checks passed, then failed because the local Docker Desktop Linux engine pipe does not exist. Native `gitleaks` is not installed, and the Docker image build therefore also could not run. Per the approved instruction, Codex did not wait for or attempt to repair Docker; G2 CI remains the container/gitleaks gate. Local G1 stays partial until those two Docker-backed checks run.
 - G2 CI run `35425097047`: PASS. The `checks` job installed the frozen dependency graph, ran G1 checks, built the image, passed the fixable HIGH/CRITICAL Trivy gate, generated the CycloneDX SBOM, and uploaded it. The conditional Terraform job also passed with its Terraform steps correctly skipped because M1 has no infrastructure files.
 - `make verify-bundle MILESTONE=M1`: failed immediately when `scripts/verify_bundle.sh` could not connect to the local Docker API; no bundle file was emitted or committed.
+- After Docker Desktop became available, `make check`: PASS end to end. The containerized gitleaks scan inspected approximately 884 KB with no leaks, and the local `tis:local` Docker image built successfully.
 
 **M1 decisions made**
 
@@ -228,7 +229,7 @@ Open questions: before M1.4/M1.6 implementation, Rehaan must provide or confirm 
 
 **M1 open questions / blockers**
 
-No implementation or schema questions remain. Local Docker-backed gitleaks, image build, and verification-bundle generation remain blocked by the unavailable Docker daemon; CI is the approved G2 gate for the first two. M6 has not started and requires its own plan-only PR after M1 completes its review sequence.
+No implementation or schema questions remain. The earlier local Docker blocker is resolved. M6 has not started and requires its own plan-only PR after M1 completes its review sequence.
 
 ### M2. Lead sync
 
