@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M2 · **Current gate:** G1 passed; awaiting G2 CI · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M2 · **Current gate:** G2 passed; awaiting G3 review · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -12,7 +12,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 |---|---|---|---|---|---|---|---|---|
 | M0 Repo bootstrap | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #1 merged; M0.9 follow-up in PR #2 |
 | M1 Core library | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #3 merged; G3 PASS at `45a022b4` |
-| M2 Lead sync | ☑ | ☑ | ☐ | ☐ | ☐ | ☐ | ☐ | PR #5; G1 green |
+| M2 Lead sync | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | ☐ | PR #5; G1/G2 green |
 | M3 Booking sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M4 Packaging | ☐ | ☐ | ☐ | ☐ | ☐ | n/a | n/a | |
 | M5 Deploy tooling | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
@@ -299,7 +299,8 @@ The authoritative mapping is: UUID → unique custom `supabase_lead_id`; split `
 - Safety evidence: synthetic tests prove dry run records one `skipped` audit tuple and makes zero HTTP or source-row writes; the guarded Zoho upsert uses `(zoho, <Supabase UUID>, upsert_lead)` plus Zoho's `supabase_lead_id` duplicate field; bounded retry covers invalid tokens and 429s; a duplicate/concurrent audit claim increments the source attempt counter rather than creating an infinite retry; the exact source predicate always excludes test rows and caps attempts below 10.
 - Decisions: the authoritative source predicate replaces the originally planned `integration_state` high-water cursor; no cursor state is read or written. `Lead_Source=Website` remains mapping-configurable so it can be omitted if the Zoho picklist lacks that value. The supplied existing OAuth scopes are accepted as external account state but are not expanded, inspected, or exercised beyond token refresh and Lead upsert.
 - Deviations from approved G0: the post-approval source/Zoho contract removed the planned cursor state write and substituted the authoritative source-row status write-back, as documented above. Its exact predicate also removed the planned `ALLOW_TEST_SYNC` override, so test rows are unconditionally excluded; this is a safety-tightening scope reduction. `tests/unit/test_betterstack.py` was added to the planned file list before implementation because its exact allowlist assertion necessarily changed. No dependency, egress host, scope, external write, protected path, or other file changed outside the amended plan.
-- Open questions: before enabling M2 in any environment, Rehaan must confirm the custom Zoho field API name is exactly `supabase_lead_id`, confirm the `Website` Lead Source picklist value or remove it from the mapping, and confirm the human-applied source-table migration has added `is_test`, `crm_synced_at`, and `zoho_lead_id`. G4/G5 remain blocked until those human checks and the normal G2/G3 gates complete.
+- Open questions: before enabling M2 in any environment, Rehaan must confirm the custom Zoho field API name is exactly `supabase_lead_id`, confirm the `Website` Lead Source picklist value or remove it from the mapping, and confirm the human-applied source-table migration has added `is_test`, `crm_synced_at`, and `zoho_lead_id`. G4/G5 remain blocked until those human checks and G3 review complete.
+- G2 CI run `35474624514` at `ac91d96`: PASS. The `checks` job repeated G1, built and scanned the image for fixable HIGH/CRITICAL vulnerabilities, generated and uploaded the CycloneDX SBOM, and completed successfully; the conditional Terraform job also passed with no M2 infrastructure change.
 
 **G4 dry run (Rehaan)**
 
