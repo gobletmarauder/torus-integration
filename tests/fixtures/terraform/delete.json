@@ -1,0 +1,10 @@
+{
+  "resource_changes": [
+    {
+      "address": "cloudflare_r2_bucket.backups",
+      "mode": "managed",
+      "type": "cloudflare_r2_bucket",
+      "change": {"actions": ["delete"], "after": null}
+    }
+  ]
+}

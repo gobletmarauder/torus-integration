@@ -1,0 +1,13 @@
+{
+  "resource_changes": [
+    {
+      "address": "cloudflare_zero_trust_access_policy.ops_admin",
+      "mode": "managed",
+      "type": "cloudflare_zero_trust_access_policy",
+      "change": {
+        "actions": ["create"],
+        "after": {"account_id": "acct-fixture", "include": [{"everyone": {}}]}
+      }
+    }
+  ]
+}

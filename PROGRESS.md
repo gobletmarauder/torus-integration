@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M1 · **Current gate:** G3 review · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M6 · **Current gate:** G3 review pending · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -11,12 +11,12 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 | Milestone | G0 Plan | G1 Local | G2 CI | G3 Claude | G4 Dry run | G5 Live | G6 Burn-in | Bundle / PR |
 |---|---|---|---|---|---|---|---|---|
 | M0 Repo bootstrap | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #1 merged; M0.9 follow-up in PR #2 |
-| M1 Core library | ☑ | ☑ | ☑ | ☐ | n/a | n/a | n/a | PR #3; local checks and CI green; verification bundle pending |
+| M1 Core library | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #3 merged; G3 PASS at `45a022b4` |
 | M2 Lead sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M3 Booking sync | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M4 Packaging | ☐ | ☐ | ☐ | ☐ | ☐ | n/a | n/a | |
 | M5 Deploy tooling | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| M6 Cloudflare IaC | ☐ | ☐ | ☐ | ☐ | plan reviewed ☐ | applied ☐ | n/a | |
+| M6 Cloudflare IaC | ☑ | ☑ | ☑ | ◐ | plan reviewed ☐ | applied ☐ | n/a | PR #4; G1/G2 green |
 | M7 Cutover | n/a | n/a | n/a | ☐ | ☐ | ☐ | ☐ | |
 
 Legend: ☐ not started · ◐ in progress · ☑ passed · ✖ failed (see incidents)
@@ -185,6 +185,23 @@ No implementation questions. Local G1 and `make verify-bundle MILESTONE=M0.9` re
 | M1.6 External-write guard | ☑ | #3 | Dry run, kill switch, atomic idempotency claim, audit statuses, and per-run/per-day budgets implemented. |
 | M1.7 Better Stack and PostHog helpers | ☑ | #3 | Pydantic outgoing payloads and guarded heartbeat/capture helpers implemented with synthetic-only tests. |
 
+### M1 — G3 Verification: PASS
+Reviewer: Claude (Opus) — verification-only
+Commit verified: 45a022b4 (CI green at c4de8de/head)
+Bundle: sections=15 checks=PASS guard=PASS gitleaks=PASS trivy=PASS protected_changes=3
+Tests: 90 passed / 90.12% coverage
+
+Findings:
+- Egress allowlist correct and enforced on initial + redirect requests (http.py only)
+- Guard NET003/NET004 enforce runtime↔guard allowlist parity; httpx confined to http.py
+- External writes limited to betterstack heartbeat + posthog capture, both guarded
+- DRY_RUN-safe (skipped, zero HTTP); kill switch, budgets, idempotency on (source, external_id, action)
+- SQL parameterized; PII redaction covers emails/phones/sensitive keys
+- No secrets; gitleaks + trivy clean
+
+Verdict: PASS. Cleared to merge PR #3.
+Next: M6 (Terraform, infra execution session), then M2 (Zoho lead sync).
+
 ### M1 G0 plan (2026-09-18)
 
 Scope: M1.1, M1.2, M1.3, M1.4, M1.5, M1.6, and M1.7. Build the typed configuration, controlled HTTP, structured logging, async database, state/kill-switch, external-write guard, Better Stack heartbeat, and PostHog capture foundations required by later jobs. This is a plan-only change; implementation stops until Rehaan comments `G0 approved` on the draft PR.
@@ -275,7 +292,67 @@ Verdict:
 ### M5. Deployment tooling
 (G5: deploy, forced smoke failure with automatic rollback, backup, restore test)
 ### M6. Cloudflare infrastructure
-(G4 replaced by: plan.txt reviewed by Claude; G5 replaced by: apply output and post-apply checks)
+
+**Tasks**
+
+| Task | Status | PR | Notes |
+|---|---|---|---|
+| M6.1 Provider, backend, variables | ☑ | #4 | Provider 5.25.0 locked; R2 S3 backend and no-default identifiers validated. |
+| M6.2 Tunnel and ingress | ☑ | #4 | Remotely managed tunnel has ops, SSH, and final 404 ingress. |
+| M6.3 Access applications and policies | ☑ | #4 | Two self-hosted apps use exact-admin policies and 12-hour sessions. |
+| M6.4 Tunnel DNS records | ☑ | #4 | Only `ops` and `ssh` proxied CNAMEs; both have `prevent_destroy`. |
+| M6.5 Existing Turnstile widget import | ☑ | #4 | Existing managed widget is declared with import block and `prevent_destroy`. |
+| M6.6 R2 backups bucket | ☑ | #4 | `torus-backups` has `prevent_destroy`; state bucket remains a manual prerequisite. |
+| M6.7 Zone settings and conditional site domains | ☑ | #4 | Strict TLS/HTTPS, www redirect, and default-off Workers domains validate. |
+
+### M6 G0 plan (2026-09-19)
+
+Scope: M6.1, M6.2, M6.3, M6.4, M6.5, M6.6, and M6.7. Build the reviewed Cloudflare Terraform module and local plan-safety tooling described by `docs/INFRA-EXECUTION.md` Part 5.1. This is the plan-only gate: no Terraform command, Cloudflare API/dashboard query, import, plan, apply, state operation, or infrastructure mutation will occur before a fresh `G0 approved` comment. Rehaan alone runs the later credentialed plan/apply session, and Claude reviews `plan.txt` before apply.
+
+Files to create/modify: create `infra/cloudflare/versions.tf`, `infra/cloudflare/providers.tf`, `infra/cloudflare/variables.tf`, `infra/cloudflare/tunnel.tf`, `infra/cloudflare/dns.tf`, `infra/cloudflare/access.tf`, `infra/cloudflare/turnstile.tf`, `infra/cloudflare/r2.tf`, `infra/cloudflare/zone.tf`, `infra/cloudflare/site_domain.tf`, `infra/cloudflare/outputs.tf`, `infra/cloudflare/README.md`, `infra/cloudflare/.tflint.hcl`, `infra/cloudflare/.terraform.lock.hcl`, `scripts/tf_gate.py`, `tests/unit/test_tf_gate.py`, `tests/fixtures/terraform/clean-create.json`, `tests/fixtures/terraform/delete.json`, `tests/fixtures/terraform/forbidden-mx.json`, `tests/fixtures/terraform/broadened-access.json`, `tests/fixtures/terraform/over-limit.json`, and `docs/pr-notes/M6.md`; modify `.gitignore`, `Makefile`, `scripts/guard.py`, `tests/unit/test_guard.py`, and `PROGRESS.md`. The PR-notes file is the one implementation-time scope correction: M0.9 made it mandatory input to `make verify-bundle`, but it was inadvertently absent from this list at approval. Adding this non-protected documentation file changes no dependency, host, privilege, external write, or protected path and therefore does not require re-approval under AGENTS.md 3.2. `.github/workflows/ci.yml` will not change: its M0.9 configuration already detects `infra/cloudflare/*.tf`, pins Terraform `1.14.6`, and runs only `make tf-fmt` and `make tf-validate`; it never plans or applies. No application source, deployment, secret, SOPS, dependency-lock, or verification-script file will change.
+
+Protected paths touched: yes (`infra/**`, `scripts/guard.py`, and, as explicitly designated for this milestone, `scripts/tf_gate.py` and `Makefile`). The implementation PR must carry `protected-change`. `AGENTS.md`, `.github/**`, `deploy/**`, `.sops.yaml`, `secrets/**`, `scripts/verify_bundle.sh`, `src/tis/http.py`, and `src/tis/guards.py` will not change.
+
+New dependencies: no Python runtime or development package. Terraform will continue at the CI-pinned `1.14.6` (Business Source License 1.1; existing developer/CI executable) and will lock `cloudflare/cloudflare==5.25.0` (Apache-2.0; exact provider version verified from the official release; required to manage the approved Cloudflare resources) in `.terraform.lock.hcl`. Local lint documentation/configuration will pin TFLint `0.64.0` (MPL-2.0; static Terraform linting required by `docs/CLOUDFLARE.md`); it is a developer executable, not installed by Python or CI. No provider or tool may float to `latest`, and no additional Terraform provider or GitHub Action will be added.
+
+New egress hosts: none for the `tis` service, and `src/tis/http.py` remains unchanged. In the later human credentialed session, Terraform itself will contact Cloudflare's provider API and the account-scoped R2 S3 endpoint configured for the backend; those are infrastructure-tool connections, not service egress entries. Tests, G0 work, `terraform fmt`, `terraform validate -backend=false`, TFLint, and `tf_gate.py` use no Cloudflare credentials and make no Cloudflare API calls.
+
+New scopes/privileges: no service, database, OAuth, GitHub, or host privilege. The later human-created `terraform-torus` Cloudflare token is limited to Account Access Apps and Policies Edit, Turnstile Edit, Workers R2 Storage Edit, Account Settings Read, and for the `torusmesh.com` zone only DNS Edit, Zone Settings Edit, Zone Read, and Dynamic Redirect Edit. Backend credentials are limited to Object Read & Write on the existing `torus-tfstate` bucket. Values for `account_id`, `zone_id`, `zone_name`, `admin_email`, `worker_name`, `site_hostnames`, `ops_hostname`, `ssh_hostname`, and the existing public `turnstile_sitekey` have no repository defaults and are supplied only through gitignored `terraform.tfvars`; `enable_site_custom_domain` is the sole behavior switch and defaults to `false`. No token, secret, account/zone id, personal email, state credential, or `.tfvars` value is committed.
+
+External writes added: Terraform declarations for: the remotely managed `torus-home` tunnel and its configuration; proxied `ops` and `ssh` tunnel CNAMEs; two self-hosted Access applications and exact-admin allow policies with 12-hour sessions; the existing `torus-mesh-form` Turnstile widget managed only after import; private `torus-backups`; strict SSL/Always Use HTTPS and the `www` redirect; and, only when `enable_site_custom_domain=true`, Workers custom-domain resources for the apex and `www`. Terraform addresses plus the R2-backed state provide idempotency; `tf_gate.py` caps an approved plan at 30 total changes and rejects every delete or replace. `@external_write` does not apply to declarative Terraform executed manually outside the service. `lifecycle { prevent_destroy = true }` is required on both tunnel DNS records, the Turnstile widget, and `torus-backups`. No WAF/hooks resource is created in M6; it remains reserved for M8.
+
+Terraform design and import safety: `versions.tf` configures the exact provider and the S3 backend bucket `torus-tfstate` with key `cloudflare/terraform.tfstate`, region `auto`, an account-specific endpoint supplied at initialization, and the required S3 validation/checksum skips without embedding credentials. `tunnel.tf` routes `ops.torusmesh.com` to `http://tis-api:8080`, `ssh.torusmesh.com` to `ssh://host-gateway:22`, and ends with `http_status:404`. `dns.tf` declares only proxied CNAME records for the configured `ops` and `ssh` hostnames. `access.tf` includes exactly `var.admin_email`, never Bypass or Everyone. `turnstile.tf` declares `cloudflare_turnstile_widget.form` in Managed mode for `torusmesh.com`, `www.torusmesh.com`, and the supplied current `workers.dev` hostname(s), plus an import block whose id is `${var.account_id}/${var.turnstile_sitekey}`; the first reviewed plan must therefore show an import, not a create. `r2.tf` manages only `torus-backups`; `torus-tfstate` is never a managed resource. `site_domain.tf` uses `cloudflare_workers_custom_domain` only behind the default-false switch and does not declare DNS records. Outputs include tunnel id, sensitive tunnel token, ops Access audience, public Turnstile sitekey, and sensitive Turnstile secret. The specific Part 5.1 instructions to import Turnstile and conditionally manage Workers custom domains supersede older prose in `docs/MASTER-PLAN.md`/`docs/CLOUDFLARE.md` that says those objects stay dashboard-only.
+
+Plan gate and repository guard: `scripts/tf_gate.py` accepts a `terraform show -json` plan file plus the gitignored tfvars source, parses both without third-party Python packages, and prints only resource type, address, action, the explicitly checked DNS name/type or policy email comparison, and a final `PASS`/`FAIL`; it never prints general attribute values. The explicit managed-resource allowlist is exactly `cloudflare_zero_trust_tunnel_cloudflared`, `cloudflare_zero_trust_tunnel_cloudflared_config`, `cloudflare_dns_record`, `cloudflare_zero_trust_access_application`, `cloudflare_zero_trust_access_policy`, `cloudflare_turnstile_widget`, `cloudflare_r2_bucket`, `cloudflare_zone_setting`, `cloudflare_ruleset`, and `cloudflare_workers_custom_domain`; the read-only `cloudflare_zero_trust_tunnel_cloudflared_token` data source is the only allowed data-source type. The gate exits non-zero for any delete or replace; any type outside that allowlist; more than 30 changes; any `cloudflare_dns_record` of type `MX`, `TXT`, `NS`, or `CAA`; any DNS record named `@`, `www`, `torusmesh.com`, `www.torusmesh.com`, or their normalized apex equivalents; any Access include list not exactly the configured admin email; or any resource whose planned `account_id`/`zone_id` differs from gitignored tfvars. `scripts/guard.py` independently scans Terraform source and fails if a `cloudflare_dns_record` block can manage MX/TXT/NS/CAA or apex/www, including variable/literal forms that cannot be proven safe. These complementary rules never permit existing email, verification, nameserver, CAA, apex, or `www` DNS records to enter Terraform.
+
+Make and artifact safety: add `tf-init`, `tf-lint`, `tf-plan`, `tf-gate`, and `tf-apply`. `tf-plan` writes only `infra/cloudflare/plan.tfplan`, `plan.txt`, and `plan.json`; `tf-gate` evaluates that JSON and gitignored tfvars; `tf-apply` refuses unless both artifacts exist and a fresh rerun of the gate passes, then applies the saved plan only. `.gitignore` adds `infra/cloudflare/plan.tfplan`, `plan.txt`, `plan.json`, `terraform.tfvars`, `.terraform/`, and `*.tfstate*`. No target prints credentials or tfvars. Codex will run only formatting, TFLint, `terraform init -backend=false`, and validate after approval; Codex will never invoke `tf-plan`, `tf-apply`, `terraform plan`, `terraform apply`, import, state commands, or credentialed initialization.
+
+Tests: `tests/unit/test_tf_gate.py` invokes the gate against saved synthetic JSON and synthetic tfvars without network access. A clean create/import-only M6 plan must pass and produce a bounded action table plus `PASS`. Planted fixtures must fail separately for a delete, replace, forbidden/unapproved resource type, MX/TXT/NS/CAA records, apex/www record names, broadened or non-exact Access includes, mismatched zone/account ids, and 31 changes. Tests also prove the output excludes unrelated before/after values and synthetic credentials. `tests/unit/test_guard.py` plants Terraform source violations for each forbidden DNS type and apex/www name, including attempts to hide values behind locals/variables, while safe `ops`/`ssh` CNAME blocks pass. After approval, G1 runs `make check`, `make tf-fmt`, `make tf-validate`, and pinned TFLint; G2 repeats format/validate only. No test, CI job, or Codex command contacts Cloudflare or runs a plan/apply.
+
+Rollback: before any human apply, revert or close the implementation PR and delete only local ignored plan artifacts. After apply, do not delete, replace, or remove protected resources ad hoc. Rehaan restores the last reviewed Terraform commit/state and produces a new saved plan; `tf_gate.py` and Claude must approve it before another apply. Existing DNS export remains the disaster-recovery reference, and any emergency dashboard change is recorded in `PROGRESS.md` then reconciled through a new approved plan. The imported Turnstile widget, tunnel DNS records, and backups bucket remain protected by `prevent_destroy` throughout.
+
+Open questions: Rehaan must confirm in the Cloudflare dashboard that the manually created `torus-tfstate` bucket exists before the later backend initialization; repository policy forbids Codex from querying Cloudflare, so absence is treated as a manual prerequisite. Before the human plan session, Rehaan supplies through gitignored tfvars—not chat or the repository—the account/zone ids, admin email, exact current `workers.dev` hostname, worker name, hostnames, and existing public Turnstile sitekey. During implementation, offline provider-schema validation must confirm that the imported widget exposes a sensitive secret output; if Cloudflare does not return the secret after import, Rehaan retrieves it from the dashboard and no secret is written to state output or the repository. The first plan is blocked unless it shows the Turnstile import (not create), contains no delete/replace, and passes `tf_gate.py`; Claude then reviews `plan.txt` before Rehaan applies. No other question authorizes widening DNS ownership, token scopes, resource types, or the 30-change ceiling.
+
+(G4 replaced by: `plan.txt` reviewed by Claude; G5 replaced by: apply output and post-apply checks.)
+
+**M6 G1 evidence (2026-09-19)**
+
+- G0 approval: repository-owner comment `G0 approved` on draft PR #4 before implementation.
+- `make check`: PASS. Ruff check/format and mypy passed; pytest passed 119 tests with 90.12% total coverage and no skips/xfails; repository guard passed while reporting 15 protected changes; pip-audit found no known vulnerabilities; the license gate passed; gitleaks found no leaks; Docker built `tis:local` successfully.
+- `make tf-fmt`: PASS with Terraform 1.14.6.
+- `make tf-validate`: PASS after `terraform init -backend=false`; Cloudflare provider 5.25.0 was selected from the committed lock file and the configuration is valid. No backend, credentials, Terraform plan, import, state, apply, or Cloudflare API operation was used.
+- `make tf-lint`: PASS with TFLint 0.64.0 and its bundled Terraform ruleset.
+- G2 CI: PASS on PR #4 at `19e326e`; the full `checks` job passed in 1m03s and the Terraform fmt/validate job passed in 1m18s.
+- Planted safety checks: PASS. Tests reject removal/replacement, unapproved resource types, MX/TXT/NS/CAA and apex/www DNS, broadened Access includes, missing or mismatched account/zone ids, 31 changes, unsafe Terraform DNS expressions, and leakage of unchecked values. The clean synthetic create-plus-import fixture passes.
+
+**M6 decisions and open questions**
+
+- Provider validation requires Access application policy precedence to begin at 1; both exact-admin attachments use precedence 1.
+- Import records with a Terraform `no-op` action are still counted and checked by `tf_gate.py` when the JSON contains import metadata.
+- Offline provider-schema validation confirmed the imported Turnstile resource exposes `secret`; the Terraform output remains marked sensitive. Whether the real imported object returns a populated value is verified only in the later human execution session.
+- Open: Rehaan must confirm the manually created `torus-tfstate` bucket exists before credentialed backend initialization and must supply all no-default inputs through gitignored tfvars. The first human plan must show the Turnstile import rather than a create, contain no removal/replacement, pass `tf_gate.py`, and receive the required Claude review before apply.
+- Deviation: `docs/pr-notes/M6.md` was added because the merged M0.9 bundle contract requires it. No other deviation from the approved implementation plan occurred.
+
 ### M7. Production cutover
 
 ---
@@ -293,6 +370,7 @@ Verdict:
 | 2026-09-16 | Integration layer on home server in Docker Compose; website stays on Cloudflare | Master plan A1, A2 | MASTER-PLAN |
 | 2026-09-16 | Secrets via SOPS + age; age key only on server and password manager | A6 | MASTER-PLAN |
 | 2026-09-16 | Pull-based, human-triggered deploys by digest with automatic rollback | A8 | MASTER-PLAN |
+| 2026-09-19 | M6 imports the existing Turnstile widget and gates every saved plan before human apply | Prevent recreation and block destructive or out-of-scope Cloudflare changes | PR #4 / M6 G0 plan |
 
 ## 5. Incidents and stop conditions
 

@@ -8,4 +8,13 @@ __pycache__/
 *.py[cod]
 docs/bundles/*.md
 !docs/bundles/.gitignore
+infra/cloudflare/.terraform/
+infra/cloudflare/*.tfstate
+infra/cloudflare/*.tfstate.*
+infra/cloudflare/*.tfplan
+infra/cloudflare/plan.json
+infra/cloudflare/plan.txt
+infra/cloudflare/*.tfvars
+infra/cloudflare/*.tfvars.json
+infra/cloudflare/backend*.hcl
 
