@@ -7,9 +7,11 @@ from uuid import UUID
 
 import pytest
 
-from tis.mapping.lead_to_zoho import LeadRow, load_field_map, map_lead
+from tis.mapping.booking_parser import Booking, load_booking_field_map
+from tis.mapping.lead_to_zoho import LeadRow, load_field_map, map_booking_lead, map_lead
 
 FIELD_MAP = Path(__file__).parents[2] / "config" / "zoho_lead_fields.toml"
+BOOKING_MAP = Path(__file__).parents[2] / "config" / "zoho_booking_fields.toml"
 LEAD_ID = UUID("00000000-0000-4000-8000-000000000001")
 
 
@@ -65,3 +67,24 @@ def test_duplicate_api_names_are_rejected(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="unique"):
         load_field_map(mapping)
+
+
+@pytest.mark.parametrize(
+    ("email", "company"),
+    [("person@gmail.com", "Individual"), ("person@business.example", "business.example")],
+)
+def test_booking_lead_uses_email_deduplication_and_safe_company(email: str, company: str) -> None:
+    booking = Booking(
+        event_id="synthetic-event",
+        start=datetime(2026, 1, 20, 16, tzinfo=UTC),
+        end=datetime(2026, 1, 20, 17, tzinfo=UTC),
+        attendee_email=email,
+        attendee_name="Example Person",
+    )
+    mapped = map_booking_lead(
+        booking, load_field_map(FIELD_MAP), load_booking_field_map(BOOKING_MAP)
+    )
+    assert mapped.duplicate_field == "Email"
+    assert mapped.fields["Company"] == company
+    assert mapped.fields["Handoff_Review_Booked_At"] == "2026-01-20T16:00:00+00:00"
+    assert "supabase_lead_id" not in mapped.fields

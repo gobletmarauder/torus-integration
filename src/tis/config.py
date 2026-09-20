@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     betterstack_budget_per_day: int = Field(default=400, gt=0)
     zoho_create_budget_per_run: int = Field(default=25, gt=0, le=25)
     zoho_create_budget_per_day: int = Field(default=200, gt=0)
+    zoho_booking_budget_per_run: int = Field(default=10, gt=0, le=10)
+    zoho_booking_budget_per_day: int = Field(default=100, gt=0)
 
     database_dsn: str | None = None
     posthog_api_key: str | None = None
@@ -44,13 +46,21 @@ class Settings(BaseSettings):
     zoho_api_url: HttpUrl | None = None
     zoho_api_version: Literal["v8"] = "v8"
     zoho_lead_field_map_path: Path = Path("config/zoho_lead_fields.toml")
+    zoho_booking_field_map_path: Path = Path("config/zoho_booking_fields.toml")
+    google_service_account_email: SecretStr | None = None
+    google_service_account_private_key: SecretStr | None = None
+    google_impersonated_user: SecretStr | None = None
+    google_calendar_id: SecretStr | None = None
+    google_token_url: HttpUrl | None = None
+    google_calendar_api_url: HttpUrl | None = None
+    google_booking_lookback_days: int = Field(default=7, ge=7, le=7)
 
     @model_validator(mode="after")
     def require_safe_dry_run(self) -> Settings:
         """Reject live writes outside production; this has no side effects."""
         if self.env != "prod" and not self.dry_run:
             raise ValueError("DRY_RUN may be false only when ENV=prod")
-        if self.lead_sync_enabled:
+        if self.lead_sync_enabled or self.booking_sync_enabled:
             required = (
                 self.database_dsn,
                 self.zoho_client_id,
@@ -67,6 +77,23 @@ class Settings(BaseSettings):
             }
             if hosts != {"accounts.zoho.com", "www.zohoapis.com"}:
                 raise ValueError("Zoho URLs must use the approved US hosts")
+        if self.booking_sync_enabled:
+            google_required = (
+                self.google_service_account_email,
+                self.google_service_account_private_key,
+                self.google_impersonated_user,
+                self.google_calendar_id,
+                self.google_token_url,
+                self.google_calendar_api_url,
+            )
+            if any(value is None for value in google_required):
+                raise ValueError("booking sync settings are incomplete")
+            google_hosts = {
+                str(self.google_token_url.host if self.google_token_url else ""),
+                str(self.google_calendar_api_url.host if self.google_calendar_api_url else ""),
+            }
+            if google_hosts != {"oauth2.googleapis.com", "www.googleapis.com"}:
+                raise ValueError("Google URLs must use the approved hosts")
         return self
 
 

@@ -15,8 +15,10 @@ from tis.log import get_logger, redact
 EGRESS_ALLOWLIST: frozenset[str] = frozenset(
     {
         "accounts.zoho.com",
+        "oauth2.googleapis.com",
         "uptime.betterstack.com",
         "us.i.posthog.com",
+        "www.googleapis.com",
         "www.zohoapis.com",
     }
 )
@@ -25,7 +27,18 @@ MAX_REDIRECTS = 5
 MAX_ATTEMPTS = 3
 _IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
-_SENSITIVE_QUERY_KEYS = frozenset({"token", "code", "refresh_token", "api_key"})
+_SENSITIVE_QUERY_KEYS = frozenset(
+    {
+        "token",
+        "code",
+        "refresh_token",
+        "api_key",
+        "synctoken",
+        "pagetoken",
+        "assertion",
+        "email",
+    }
+)
 _LOG = get_logger("http")
 
 

@@ -1,0 +1,1 @@
+{"items":[{"id":"synthetic-event-002","status":"confirmed","summary":"Handoff Review","start":{"dateTime":"2026-01-21T14:00:00Z"},"end":{"dateTime":"2026-01-21T14:30:00Z"},"attendees":[{"email":"person@example.com"}]}],"nextSyncToken":"synthetic-sync-token-002"}

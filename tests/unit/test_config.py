@@ -32,9 +32,9 @@ def test_budgets_must_be_positive() -> None:
 
 
 def test_job_flags_are_independent() -> None:
-    settings = Settings(lead_sync_enabled=False, booking_sync_enabled=True, _env_file=None)
+    settings = Settings(lead_sync_enabled=False, booking_sync_enabled=False, _env_file=None)
     assert settings.lead_sync_enabled is False
-    assert settings.booking_sync_enabled is True
+    assert settings.booking_sync_enabled is False
 
 
 def test_enabled_lead_sync_requires_complete_approved_settings() -> None:
@@ -66,4 +66,29 @@ def test_enabled_lead_sync_rejects_unapproved_hosts() -> None:
             zoho_accounts_url=service_url("accounts.zoho.com"),
             zoho_api_url=service_url("api.example.com"),
             _env_file=None,
+        )
+
+
+def test_enabled_booking_sync_requires_google_settings_and_exact_hosts() -> None:
+    common = {
+        "booking_sync_enabled": True,
+        "database_dsn": "postgresql://synthetic.invalid/db",
+        "zoho_client_id": "synthetic-client",
+        "zoho_client_secret": "synthetic-secret",
+        "zoho_refresh_token": "synthetic-refresh",
+        "zoho_accounts_url": service_url("accounts.zoho.com"),
+        "zoho_api_url": service_url("www.zohoapis.com"),
+        "google_service_account_email": "reader@example.invalid",
+        "google_service_account_private_key": "synthetic-private-key",
+        "google_impersonated_user": "owner@example.invalid",
+        "google_calendar_id": "calendar@example.invalid",
+        "google_token_url": service_url("oauth2.googleapis.com") + "/token",
+        "google_calendar_api_url": service_url("www.googleapis.com"),
+    }
+    settings = Settings(**common, _env_file=None)
+    assert settings.booking_sync_enabled
+    assert "synthetic-private-key" not in repr(settings)
+    with pytest.raises(ValidationError, match="approved hosts"):
+        Settings(
+            **{**common, "google_calendar_api_url": service_url("example.com")}, _env_file=None
         )

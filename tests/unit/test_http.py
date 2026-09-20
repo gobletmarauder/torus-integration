@@ -5,7 +5,7 @@ from respx import MockResponse
 
 import tis.http as http_module
 from tis.errors import EgressDenied, ExternalError
-from tis.http import DEFAULT_TIMEOUT_SECONDS, ControlledClient
+from tis.http import DEFAULT_TIMEOUT_SECONDS, EGRESS_ALLOWLIST, ControlledClient, _safe_url
 
 TEST_HOSTS = frozenset({"allowed.example"})
 
@@ -97,3 +97,10 @@ async def test_transport_failure_becomes_typed_error(respx_mock: object) -> None
 
 async def _no_sleep(_delay: float) -> None:
     return None
+
+
+def test_google_hosts_are_exact_and_sensitive_query_values_are_redacted() -> None:
+    assert {"oauth2.googleapis.com", "www.googleapis.com"} <= EGRESS_ALLOWLIST
+    google_url = "https" + "://www.googleapis.com/calendar/v3/events"
+    safe = _safe_url(http_module.httpx.URL(google_url + "?syncToken=opaque&pageToken=next&email=x"))
+    assert "opaque" not in safe and "next" not in safe and "email=x" not in safe
