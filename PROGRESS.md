@@ -340,10 +340,10 @@ Verdict:
 
 | Task | Status | PR | Notes |
 |---|---|---|---|
-| M3.1 Google Calendar read-only client | ◐ | draft | Manual RS256 service-account JWT, delegated token cache, incremental events cursor, bounded 410 recovery. |
-| M3.2 Handoff Review booking parser | ◐ | draft | Typed parser based on a real redacted fixture; missing answers and personal-email domains handled. |
-| M3.3 Guarded Zoho booking workflow | ◐ | draft | Match Contact/Lead by attendee email; note/task/timestamp existing records or create a Lead through the M2 mapping module. |
-| M3.4 Booking sync job and tests | ◐ | draft | Per-event isolation, state cursor, dry-run/kill-switch safety, synthetic HTTP interception. |
+| M3.1 Google Calendar read-only client | ☑ | #6 | Manual RS256 service-account JWT, delegated token cache, incremental events cursor, bounded 410 recovery. |
+| M3.2 Handoff Review booking parser | ☑ | #6 | Typed parser based on a fully synthetic redaction of the captured shape; missing answers and personal-email domains handled. |
+| M3.3 Guarded Zoho booking workflow | ☑ | #6 | Contact-first/Lead search; marker-deduplicated note/task plus timestamp, or email-deduplicated Lead creation. |
+| M3.4 Booking sync job and tests | ☑ | #6 | Per-event isolation, bounded cursor/pagination, dry-run/kill-switch safety, and intercepted synthetic HTTP. |
 
 ### M3 G0 plan (2026-09-20)
 
@@ -376,6 +376,21 @@ Tests continued: Zoho/job tests cover Contact match precedence, Lead match, no m
 Rollback: before live enablement, revert the M3 implementation commits; `BOOKING_SYNC_ENABLED=false` and `DRY_RUN=true` remain safe defaults. After a dry-run deployment, turn on the kill switch or disable booking sync, preserve the cursor/audit evidence, and roll back the image. After a partial live workflow, stop the job before rollback and never delete/rewrite audit or cursor rows automatically; the deterministic marker checks and fixed guard key make a reviewed retry safe. Rehaan handles any CRM cleanup manually. Credential compromise follows the runbook: kill switch, revoke domain-wide delegation/service-account key and rotate through SOPS, then redeploy; code never rotates or deletes credentials.
 
 Open questions: before implementation, Rehaan must provide the exact Zoho booking-timestamp field API name and confirm that Leads and Contacts both expose it, plus confirm the standard relationship fields to use for Notes and Tasks. Rehaan must also supply one real Handoff Review event fixture that has been fully redacted before it enters the repository; no live attendee data, calendar id, user email, token, or private key is needed. Finally, the requested idempotency tuple permanently identifies the initial event, while `docs/MASTER-PLAN.md`/`docs/VERIFICATION.md` also require Zoho mutations for reschedules and cancellations. This G0 therefore detects/tests those changes and advances no cursor on unsupported live mutations, but defers their Zoho-write semantics until Rehaan approves separate action keys such as `reschedule_booking`/`cancel_booking` or an approved revision-aware guard design. It also defers Lead conversion, Account/Contact/Deal/Event creation/update, PostHog `booking_complete`, capture mode, and scheduler wiring because those would add writes/files/semantics not requested here. A `G0 approved` comment on this plan confirms those deferrals; otherwise revise G0 before implementation.
+
+**M3 G1 evidence (2026-09-20)**
+
+- G0 approval: repository-owner comment `G0 approved` on draft PR #6 before implementation.
+- `make check`: PASS at `f1eb268` from a clean detached worktree. Ruff check/format and mypy passed; pytest passed 174 tests with 88.61% total coverage and no skips/xfails. `booking_sync.py` reached 88%, `booking_parser.py` 93%, and `lead_to_zoho.py` 96%. Repository guard passed while reporting the two approved protected files; pip-audit found no known vulnerabilities; the license gate passed; gitleaks found no leaks; Docker built `tis:local` successfully.
+- Safety cases: PASS. Tests verify the exact delegated JWT scope/signature, token-cache concurrency, malformed credentials/responses, exact Google egress, captured-shape parsing, deterministic attendee selection, personal/business Lead mapping, pagination, one bounded 410 recovery, cursor non-advancement on dry run/change/failure, Contact-first matching, no-match email upsert, kill-switch blocking, and the exact dry-run audit tuple with zero HTTP from the guarded workflow.
+- Fixture hygiene: PASS. The operator-provided response was transformed into a wholly synthetic fixture with `example.com` identities and fake ids, phone, conference metadata, links, and tokens; no supplied live value was retained in the repository.
+
+**M3 decisions and open questions**
+
+- Authoritative Zoho values are `Handoff_Review_Booked_At` for both Leads and Contacts; Note relationships use `Parent_Id`; Tasks use `Who_Id`, `Subject`, `Description`, `Due_Date`, `Status`, and the exact open status `Not started`.
+- The Google scope is fixed in code to Calendar Events read-only. The two Google hosts are exact in both runtime and guard allowlists; no Google SDK or alternate endpoint was added.
+- The initial sync and single 410 recovery use seven days. Cursor fingerprints are bounded to 500 events and page traversal to 10 pages; cursor state is committed only after a failure-free live run.
+- Open: reschedule and cancellation writes remain intentionally deferred. They are detected and prevent cursor advancement until separately approved action keys or revision-aware idempotency semantics exist. Lead conversion, Account/Deal/Event writes, PostHog, capture mode, and scheduler wiring also remain deferred as approved at G0.
+- Deviation report: no implementation scope, dependency, host, privilege, external-write, protected-path, or file-list deviation. The first Docker build attempt in the clean worktree hit a transient Docker Hub TLS timeout; an immediate retry and the subsequent complete `make check` passed. The main checkout's user-owned untracked `.env` caused a local gitleaks finding, so final evidence was produced from the clean worktree without reading or modifying that file.
 
 ### M4. Service packaging
 ### M5. Deployment tooling
