@@ -1,0 +1,11 @@
+[fields]
+supabase_lead_id = "supabase_lead_id"
+first_name = "First_Name"
+last_name = "Last_Name"
+email = "Email"
+company = "Company"
+description = "Description"
+lead_source = "Lead_Source"
+
+[values]
+lead_source = "Website"

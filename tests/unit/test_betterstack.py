@@ -72,7 +72,14 @@ async def test_heartbeat_uses_exact_host_and_idempotency_key(respx_mock: object)
         )
     assert route.called
     assert audit.rows == ["ok"]
-    assert EGRESS_ALLOWLIST == frozenset({"uptime.betterstack.com", "us.i.posthog.com"})
+    assert EGRESS_ALLOWLIST == frozenset(
+        {
+            "accounts.zoho.com",
+            "uptime.betterstack.com",
+            "us.i.posthog.com",
+            "www.zohoapis.com",
+        }
+    )
 
 
 async def test_dry_run_heartbeat_makes_no_http_call() -> None:

@@ -79,3 +79,22 @@ async def test_query_failure_exits_transaction_with_rollback_signal() -> None:
     with pytest.raises(RuntimeError, match="synthetic database failure"):
         await database.execute("SELECT %s", (1,))
     assert exits == [RuntimeError]
+
+
+async def test_fetch_all_returns_every_mapping() -> None:
+    class Cursor:
+        async def fetchall(self) -> list[dict[str, int]]:
+            return [{"value": 1}, {"value": 2}]
+
+    class Connection:
+        async def execute(self, query: str, parameters: object) -> Cursor:
+            return Cursor()
+
+    database = PsycopgDatabase("postgresql://synthetic.invalid/db")
+
+    @asynccontextmanager
+    async def connection() -> Any:
+        yield Connection()
+
+    database.connection = connection  # type: ignore[method-assign]
+    assert await database.fetch_all("SELECT value", ()) == [{"value": 1}, {"value": 2}]
