@@ -381,6 +381,7 @@ Open questions: before implementation, Rehaan must provide the exact Zoho bookin
 
 - G0 approval: repository-owner comment `G0 approved` on draft PR #6 before implementation.
 - `make check`: PASS at `f1eb268` from a clean detached worktree. Ruff check/format and mypy passed; pytest passed 174 tests with 88.61% total coverage and no skips/xfails. `booking_sync.py` reached 88%, `booking_parser.py` 93%, and `lead_to_zoho.py` 96%. Repository guard passed while reporting the two approved protected files; pip-audit found no known vulnerabilities; the license gate passed; gitleaks found no leaks; Docker built `tis:local` successfully.
+- G2 CI: PASS on PR #6 at `798cab0`; the full `checks` job passed in 1m10s and the Terraform fmt/validate job passed in 9s.
 - Safety cases: PASS. Tests verify the exact delegated JWT scope/signature, token-cache concurrency, malformed credentials/responses, exact Google egress, captured-shape parsing, deterministic attendee selection, personal/business Lead mapping, pagination, one bounded 410 recovery, cursor non-advancement on dry run/change/failure, Contact-first matching, no-match email upsert, kill-switch blocking, and the exact dry-run audit tuple with zero HTTP from the guarded workflow.
 - Fixture hygiene: PASS. The operator-provided response was transformed into a wholly synthetic fixture with `example.com` identities and fake ids, phone, conference metadata, links, and tokens; no supplied live value was retained in the repository.
 
