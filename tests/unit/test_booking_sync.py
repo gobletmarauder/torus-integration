@@ -169,6 +169,31 @@ async def test_cancelled_prior_event_is_deferred(monkeypatch: pytest.MonkeyPatch
     assert result.failed == 1 and not state.writes
 
 
+async def test_item_failure_is_isolated_and_prevents_cursor_advance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    second = event()
+    second.id = "synthetic-event-2"
+
+    async def fetched(*_args: Any) -> tuple[list[GoogleEvent], str]:
+        return [event(), second], "next-token"
+
+    async def synced(_writes: WriteContext, booking: Any, *_args: Any, **_kwargs: Any) -> None:
+        if booking.event_id == "synthetic-event":
+            raise RuntimeError("synthetic failure")
+
+    monkeypatch.setattr(booking_sync, "_fetch_events", fetched)
+    monkeypatch.setattr(booking_sync, "sync_booking", synced)
+    state = State()
+    ctx = context(state)
+    try:
+        result = await booking_sync.run(ctx)
+    finally:
+        await ctx.http.aclose()
+    assert result.failed == 1 and result.succeeded == 1
+    assert not state.writes
+
+
 class Calendar:
     def __init__(self, pages: list[CalendarEventsResponse | Exception]) -> None:
         self.pages = pages

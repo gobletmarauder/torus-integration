@@ -9,7 +9,7 @@ from uuid import UUID
 import pytest
 from respx import MockResponse
 
-from tis.errors import ExternalError
+from tis.errors import ExternalError, KillSwitchOn
 from tis.guards import WriteContext
 from tis.http import ControlledClient
 from tis.integrations.zoho import ZohoAuth, ZohoDataError, sync_booking, upsert_lead
@@ -23,8 +23,11 @@ ROOT = Path(__file__).parents[2]
 
 
 class State:
+    def __init__(self, enabled: bool = False) -> None:
+        self.enabled = enabled
+
     async def kill_switch_on(self) -> bool:
-        return False
+        return self.enabled
 
 
 class Audit:
@@ -53,11 +56,11 @@ class Audit:
         self.rows.append((source, external_id, action, status, error))
 
 
-def write_context(*, dry_run: bool = False) -> tuple[WriteContext, Audit]:
+def write_context(*, dry_run: bool = False, kill: bool = False) -> tuple[WriteContext, Audit]:
     audit = Audit()
     context = WriteContext(
         dry_run=dry_run,
-        state=State(),  # type: ignore[arg-type]
+        state=State(kill),  # type: ignore[arg-type]
         audit=audit,
         per_run_budgets={
             ("zoho", "upsert_lead"): 25,
@@ -231,6 +234,28 @@ async def test_booking_dry_run_records_exact_key_with_zero_http(respx_mock: obje
     )
 
 
+async def test_booking_kill_switch_blocks_before_http(respx_mock: object) -> None:
+    context, audit = write_context(kill=True)
+    async with ControlledClient() as http:
+        with pytest.raises(KillSwitchOn):
+            await sync_booking(
+                context,
+                booking(),
+                load_field_map(ROOT / "config/zoho_lead_fields.toml"),
+                load_booking_field_map(ROOT / "config/zoho_booking_fields.toml"),
+                http,
+                auth(),
+                api_url=API,
+            )
+    assert not respx_mock.calls  # type: ignore[attr-defined]
+    assert audit.rows[-1][:4] == (
+        "google_calendar",
+        "synthetic-event",
+        "sync_booking",
+        "skipped",
+    )
+
+
 async def test_booking_prefers_contact_and_creates_note_task_and_timestamp(
     respx_mock: object,
 ) -> None:
@@ -277,3 +302,35 @@ async def test_booking_prefers_contact_and_creates_note_task_and_timestamp(
         "sync_booking",
         "ok",
     )
+
+
+async def test_booking_without_match_email_upserts_lead(respx_mock: object) -> None:
+    respx_mock.post(f"{ACCOUNTS}/oauth/v2/token").mock(  # type: ignore[attr-defined]
+        return_value=MockResponse(200, json={"access_token": "token", "expires_in": 3600})
+    )
+    base = f"{API}/crm/v8"
+    searches = respx_mock.get(url__regex=rf"{base}/(Contacts|Leads)/search.*").mock(  # type: ignore[attr-defined]
+        return_value=MockResponse(204)
+    )
+    upsert = respx_mock.post(f"{base}/Leads/upsert").mock(  # type: ignore[attr-defined]
+        return_value=MockResponse(
+            200,
+            json={"data": [{"status": "success", "code": "SUCCESS", "details": {"id": "lead-1"}}]},
+        )
+    )
+    context, _ = write_context()
+    async with ControlledClient() as http:
+        result = await sync_booking(
+            context,
+            booking(),
+            load_field_map(ROOT / "config/zoho_lead_fields.toml"),
+            load_booking_field_map(ROOT / "config/zoho_booking_fields.toml"),
+            http,
+            auth(),
+            api_url=API,
+        )
+    assert searches.call_count == 2
+    assert result.created_lead and result.record_id == "lead-1"
+    body = upsert.calls.last.request.content
+    assert b'"duplicate_check_fields":["Email"]' in body
+    assert b'"Handoff_Review_Booked_At"' in body

@@ -82,6 +82,16 @@ async def test_token_exchange_is_cached_and_concurrency_safe(respx_mock: object)
     assert route.call_count == 1
 
 
+async def test_malformed_token_response_is_typed(respx_mock: object) -> None:
+    pem, _ = key_pair()
+    respx_mock.post(TOKEN).mock(  # type: ignore[attr-defined]
+        return_value=MockResponse(200, json={"unexpected": "shape"})
+    )
+    async with ControlledClient() as http:
+        with pytest.raises(ExternalError, match="token response"):
+            await auth(pem).token(http)
+
+
 async def test_calendar_refreshes_once_and_reports_gone_token(respx_mock: object) -> None:
     pem, _ = key_pair()
     respx_mock.post(TOKEN).mock(  # type: ignore[attr-defined]
