@@ -12,6 +12,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from tis.mapping.booking_parser import Booking, BookingFieldMap, is_personal_email
+
 _API_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
 
@@ -80,6 +82,13 @@ class MappedLead(BaseModel):
     duplicate_field: str
 
 
+class MappedBookingLead(BaseModel):
+    """Outgoing Lead fields derived from a Calendar booking."""
+
+    fields: dict[str, str | Decimal]
+    duplicate_field: str
+
+
 def load_field_map(path: Path) -> ZohoFieldMap:
     """Load non-secret API names from a local TOML file; this reads no environment values."""
     with path.open("rb") as handle:
@@ -122,6 +131,32 @@ def map_lead(lead: LeadRow, mapping: ZohoFieldMap) -> MappedLead:
         fields=fields,
         duplicate_field=mapping.supabase_lead_id,
     )
+
+
+def map_booking_lead(
+    booking: Booking,
+    mapping: ZohoFieldMap,
+    booking_fields: BookingFieldMap,
+) -> MappedBookingLead:
+    """Build a booking-origin Lead payload without inventing a Supabase identifier."""
+    first_name, last_name = _split_name(booking.attendee_name or "")
+    _, _, domain = booking.attendee_email.partition("@")
+    company = (
+        booking_fields.individual_company
+        if is_personal_email(booking.attendee_email, booking_fields)
+        else domain
+    )
+    fields: dict[str, str | Decimal] = {
+        mapping.last_name: last_name,
+        mapping.email: booking.attendee_email,
+        mapping.company: company or booking_fields.individual_company,
+        booking_fields.booking_timestamp: booking.start.isoformat(),
+    }
+    if first_name:
+        fields[mapping.first_name] = first_name
+    if mapping.lead_source_value:
+        fields[mapping.lead_source] = mapping.lead_source_value
+    return MappedBookingLead(fields=fields, duplicate_field=mapping.email)
 
 
 def _split_name(name: str) -> tuple[str | None, str]:

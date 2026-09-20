@@ -1,0 +1,27 @@
+[fields]
+booking_timestamp = "Handoff_Review_Booked_At"
+note_parent = "Parent_Id"
+note_title = "Note_Title"
+note_content = "Note_Content"
+task_who = "Who_Id"
+task_subject = "Subject"
+task_description = "Description"
+task_due_date = "Due_Date"
+task_status = "Status"
+
+[values]
+note_title = "Handoff Review booked"
+task_subject = "Handoff Review booked"
+task_status = "Not started"
+individual_company = "Individual"
+personal_email_domains = [
+  "aol.com",
+  "gmail.com",
+  "hotmail.com",
+  "icloud.com",
+  "live.com",
+  "outlook.com",
+  "proton.me",
+  "protonmail.com",
+  "yahoo.com",
+]

@@ -1,0 +1,91 @@
+{
+  "kind": "calendar#event",
+  "etag": "synthetic-event-etag",
+  "id": "synthetic-handoff-event-001",
+  "status": "confirmed",
+  "htmlLink": "https://example.com/calendar/events/synthetic-handoff-event-001",
+  "created": "2026-01-15T15:00:00.000Z",
+  "updated": "2026-01-15T15:01:00.000Z",
+  "summary": "Handoff Review (Example Person)",
+  "description": "<b>Booked by</b>\nExample Person\nprospect@example.com\n+1 202-555-0100",
+  "creator": {
+    "email": "calendar-owner@example.com",
+    "self": true
+  },
+  "organizer": {
+    "email": "calendar-owner@example.com",
+    "self": true
+  },
+  "start": {
+    "dateTime": "2026-01-20T10:00:00-06:00",
+    "timeZone": "America/Chicago"
+  },
+  "end": {
+    "dateTime": "2026-01-20T10:30:00-06:00",
+    "timeZone": "America/Chicago"
+  },
+  "iCalUID": "synthetic-handoff-event-001@example.com",
+  "sequence": 0,
+  "attendees": [
+    {
+      "email": "prospect@example.com",
+      "responseStatus": "accepted"
+    },
+    {
+      "email": "calendar-owner@example.com",
+      "organizer": true,
+      "self": true,
+      "responseStatus": "accepted"
+    }
+  ],
+  "extendedProperties": {
+    "shared": {
+      "goo.createdByAvailId": "synthetic-availability-id",
+      "goo.createdBySet": "synthetic-appointment-set"
+    }
+  },
+  "hangoutLink": "https://example.com/meet/synthetic-handoff-event-001",
+  "conferenceData": {
+    "createRequest": {
+      "requestId": "synthetic-conference-request-001",
+      "conferenceSolutionKey": {
+        "type": "hangoutsMeet"
+      },
+      "status": {
+        "statusCode": "success"
+      }
+    },
+    "entryPoints": [
+      {
+        "entryPointType": "video",
+        "uri": "https://example.com/meet/synthetic-handoff-event-001",
+        "label": "example.com/meet/synthetic-handoff-event-001"
+      },
+      {
+        "entryPointType": "more",
+        "uri": "https://example.com/meet/synthetic-handoff-event-001/more",
+        "pin": "0000000000000"
+      },
+      {
+        "regionCode": "US",
+        "entryPointType": "phone",
+        "uri": "tel:+1-202-555-0100",
+        "label": "+1 202-555-0100",
+        "pin": "000000000"
+      }
+    ],
+    "conferenceSolution": {
+      "key": {
+        "type": "hangoutsMeet"
+      },
+      "name": "Google Meet",
+      "iconUri": "https://example.com/assets/google-meet.png"
+    },
+    "conferenceId": "synthetic-conference-id"
+  },
+  "guestsCanInviteOthers": false,
+  "reminders": {
+    "useDefault": true
+  },
+  "eventType": "default"
+}
