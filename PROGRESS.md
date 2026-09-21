@@ -444,7 +444,7 @@ Open questions: none. M4 uses database-only keepalive with the existing `DATABAS
 **M4 G1 evidence (2026-09-20)**
 
 - G0 approval: repository-owner approval after the final plan was merged through PR #7 at `a797dcf`; implementation is isolated on PR #8.
-- `make check`: PASS. Ruff check/format and strict mypy passed; pytest passed 209 tests with 89.06% total coverage and no skips/xfails; repository guard passed while reporting the three approved protected paths; pip-audit found no known vulnerabilities; the license gate passed; gitleaks found no leaks; and the digest-pinned multi-stage image built successfully.
+- `make check`: PASS. Ruff check/format and strict mypy passed; pytest passed 211 tests with 89.08% total coverage and no skips/xfails; repository guard passed while reporting the three approved protected paths; pip-audit found no known vulnerabilities; the license gate passed; gitleaks found no leaks; and the digest-pinned multi-stage image built successfully.
 - `make compose-config`: PASS using only `tests/fixtures/compose/synthetic.env`; the production Compose definition parsed without credentials or container startup.
 - `make image-size`: PASS. The local image is 54.9 MB, runs as `10001:10001`, and contains a healthcheck.
 - G2 CI: PASS on PR #8 at `c583c4d`; the full `checks` job passed in 1m34s and the conditional Terraform format/validation job passed in 10s.

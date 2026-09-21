@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from respx import MockResponse
 
+import tis.http as http_module
 from tis.api.access import AccessValidationError, AccessValidator
 from tis.http import ControlledClient
 
@@ -87,6 +88,23 @@ async def test_wrong_audience_and_algorithm_fail_closed(respx_mock: object) -> N
             await validator.validate(unsafe)
 
 
+async def test_expiry_not_before_and_signature_fail_closed(respx_mock: object) -> None:
+    pem, jwk = keys()
+    other_pem, _ = keys()
+    respx_mock.get(JWKS_URL).mock(  # type: ignore[attr-defined]
+        return_value=MockResponse(200, json={"keys": [jwk]})
+    )
+    now = datetime.now(UTC)
+    async with ControlledClient() as http:
+        validator = AccessValidator(http=http, team_domain=DOMAIN, audience=AUDIENCE)
+        with pytest.raises(AccessValidationError, match="claims"):
+            await validator.validate(token(pem, exp=now - timedelta(minutes=1)))
+        with pytest.raises(AccessValidationError, match="claims"):
+            await validator.validate(token(pem, nbf=now + timedelta(minutes=2)))
+        with pytest.raises(AccessValidationError, match="claims"):
+            await validator.validate(token(other_pem))
+
+
 async def test_unknown_key_refreshes_once_then_denies(respx_mock: object) -> None:
     pem, jwk = keys()
     route = respx_mock.get(JWKS_URL).mock(  # type: ignore[attr-defined]
@@ -109,4 +127,19 @@ async def test_malformed_assertion_and_jwks_are_typed(respx_mock: object) -> Non
     async with ControlledClient() as http:
         validator = AccessValidator(http=http, team_domain=DOMAIN, audience=AUDIENCE)
         with pytest.raises(AccessValidationError, match="signing keys"):
+            await validator.validate(token(pem))
+
+
+async def test_jwks_transport_failure_is_generic_access_denial(respx_mock: object) -> None:
+    pem, _ = keys()
+    respx_mock.get(JWKS_URL).mock(  # type: ignore[attr-defined]
+        side_effect=http_module.httpx.ConnectError("synthetic")
+    )
+
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    async with ControlledClient(sleep=no_sleep) as http:
+        validator = AccessValidator(http=http, team_domain=DOMAIN, audience=AUDIENCE)
+        with pytest.raises(AccessValidationError, match="unavailable"):
             await validator.validate(token(pem))

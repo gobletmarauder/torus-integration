@@ -100,7 +100,10 @@ class AccessValidator:
             now = self._clock()
             if not force and self._cached and now - self._cached[0] < JWKS_CACHE_SECONDS:
                 return self._cached[1]
-            response = await self._http.request("GET", f"{self._issuer}/cdn-cgi/access/certs")
+            try:
+                response = await self._http.request("GET", f"{self._issuer}/cdn-cgi/access/certs")
+            except ExternalError as error:
+                raise AccessValidationError("Access signing keys were unavailable") from error
             try:
                 document = Jwks.model_validate(response.json())
             except (ValueError, ValidationError) as error:
