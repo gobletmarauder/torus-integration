@@ -12,7 +12,7 @@ BASH ?= bash
 ROOT_MOUNT := $(CURDIR)
 endif
 
-.PHONY: setup check test lint type guard audit license build verify-bundle tf-fmt tf-validate tf-init tf-lint tf-plan tf-gate tf-apply
+.PHONY: setup check test lint type guard audit license build image-size compose-config verify-bundle tf-fmt tf-validate tf-init tf-lint tf-plan tf-gate tf-apply
 
 TF_DIR := infra/cloudflare
 TF_VARS ?= $(TF_DIR)/terraform.tfvars
@@ -44,6 +44,12 @@ license:
 
 build:
 	docker build --tag $(IMAGE) .
+
+image-size: build
+	$(PYTHON) scripts/check_image.py $(IMAGE)
+
+compose-config:
+	docker compose --env-file tests/fixtures/compose/synthetic.env -f deploy/compose.yaml config --quiet
 
 check: lint type test guard audit license
 	docker run --rm --volume "$(ROOT_MOUNT):/repo" --mount type=tmpfs,destination=/repo/.venv $(GITLEAKS_IMAGE) detect --no-git --source /repo
