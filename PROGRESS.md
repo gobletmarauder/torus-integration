@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M4 · **Current gate:** G3 awaiting verification · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M4 · **Current gate:** G4 dry-run (G3 PASS) · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -14,7 +14,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 | M1 Core library | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #3 merged; G3 PASS at `45a022b4` |
 | M2 Lead sync | ☑ | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | PR #5 merged; G3 PASS at `d9523fd` |
 | M3 Booking sync | ☑ | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | PR #6 merged; G3 PASS at `ca4b7ca` |
-| M4 Packaging | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | n/a | Implementation PR #8; G1/G2 green |
+| M4 Packaging | ☑ | ☑ | ☑ | ☑ | ☐ | n/a | n/a | Implementation PR #8; G3 PASS at `63a0563` |
 | M5 Deploy tooling | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M6 Cloudflare IaC | ☑ | ☑ | ☑ | ◐ | plan reviewed ☐ | applied ☐ | n/a | PR #4; G1/G2 green |
 | M7 Cutover | n/a | n/a | n/a | ☐ | ☐ | ☐ | ☐ | |
@@ -458,6 +458,21 @@ Open questions: none. M4 uses database-only keepalive with the existing `DATABAS
 - Host health fails closed until M5 writes a valid `last_backup_at`; `last_restore_test_at` is displayed but is not a five-minute health condition.
 - Open questions: none.
 - Deviation report: no file, dependency, egress host, privilege, external-write, protected-path, or implementation-scope deviation. The first two standalone image-size attempts encountered transient Docker Hub TLS handshake timeouts resolving the approved Python digest; the subsequent complete `make check` build and final image-size gate passed unchanged.
+**M4 G3 verification: PASS (Claude, Sonnet 5, verification-only) — 2026-09-20**
+
+Reviewed post-merge at `63a0563` (PR #8; base `ae070d9`), full diff plus the bundle sections, against `docs/VERIFICATION.md` B1-B12 and the M4 checklist.
+
+- Scope: diff matches the approved G0 file list exactly. Protected paths: exactly the three declared (`deploy/compose.yaml`, `src/tis/http.py`, `scripts/guard.py`); `AGENTS.md`, `scripts/verify_bundle.sh`, `src/tis/guards.py` hashes unchanged.
+- Dependencies: `APScheduler==3.11.3`, `PyJWT==2.14.0`, `fastapi==0.141.1`, `uvicorn==0.53.0`, all MIT/BSD, documented with alternatives in `docs/dependencies.md`.
+- Egress: single new host `torusmesh.cloudflareaccess.com`, GET-only, added identically to `EGRESS_ALLOWLIST` and `guard.py`'s `ALLOWED_URL_HOSTS` (NET004 parity holds).
+- Execution/writes/SQL/logging: no `eval`/`exec`/`shell=True`/`pickle`/`print` in `src/`; no new external-write call sites (keepalive/host-health reuse the existing guarded `send_heartbeat`); only parameterized `SELECT`s added; status/health responses are closed pydantic models excluding personal fields.
+- Tests/CI: 209 tests, 89.06% coverage, no skips/xfails; dry-run and kill-switch paths explicitly tested; gitleaks/pip-audit/license gate clean; G2 CI green.
+- M4-specific: Dockerfile digest-pinned multi-stage build, non-root uid 10001, no compiler in final image, `HEALTHCHECK` present, 54.9 MB. `access.py` validates issuer/audience/RS256/exp/iat with 300s JWKS cache and one forced refresh on unknown `kid`, fails closed. `/healthz` returns a generic 503 with no exception/DSN detail and is not published to the host (`expose`, not `ports`). `/ops/status` requires and validates the Access assertion before touching the database. Scheduler: `max_instances=1`, `coalesce=true`, 60s misfire grace on every job. `deploy/compose.yaml`: `read_only`, `cap_drop: [ALL]`, `no-new-privileges`, no privileged/host-network/Docker-socket/published-ports, digest-only images, `/host-state` mounted read-only into the scheduler only.
+
+Non-blocking note: `cloudflared` runs as `65532:65532` while `tis-scheduler`/`tis-api` run as `10001:10001` — intentional (distroless nonroot uid vs. the app's chosen uid), not a finding.
+
+Verdict: PASS. No deviations, no open questions logged by Codex. Next gate: M4 G4 dry-run; this also unblocks the M2 G4 and M3 G4 dry-runs both of which were waiting on M4 providing the runner.
+
 ### M5. Deployment tooling
 (G5: deploy, forced smoke failure with automatic rollback, backup, restore test)
 ### M6. Cloudflare infrastructure
@@ -568,6 +583,8 @@ Verdict: PASS. Next gate: M3 G4 dry-run (runs once M4 provides the runner).
 |---|---|---|---|
 | 2026-09-16 | Integration layer on home server in Docker Compose; website stays on Cloudflare | Master plan A1, A2 | MASTER-PLAN |
 | 2026-09-16 | Secrets via SOPS + age; age key only on server and password manager | A6 | MASTER-PLAN |
+| 2026-09-20 | Home server discovery run before M5 scoping: 28 other containers already live (scalprix trading stack, Nextcloud, Jellyfin, Immich, observability stack), UFW default-deny with 443/80 open only to LAN/tailscale (no public inbound ports), existing `scalprix-edge_cloudflared` tunnel fronting Traefik, `PasswordAuthentication yes` + key auth, Docker data-root at `/mnt/apps/docker-root` | This is a shared box, not a dedicated one; M5 tooling must not assume greenfield | chat discovery, 2026-09-20 |
+| 2026-09-20 | `docs/HOSTING.md` Part 2.2's "no password SSH login" and "restrict SSH in UFW" baseline is deferred out of M5 scope; `bootstrap.sh` will not touch `sshd_config` or any existing UFW rule | Torus ingress is entirely outbound via its own Cloudflare Tunnel (no inbound port needed), and disabling password SSH or narrowing existing SSH rules risks locking Rehaan out of every other service on the box, not just Torus | chat discovery, 2026-09-20 |
 | 2026-09-16 | Pull-based, human-triggered deploys by digest with automatic rollback | A8 | MASTER-PLAN |
 | 2026-09-19 | M6 imports the existing Turnstile widget and gates every saved plan before human apply | Prevent recreation and block destructive or out-of-scope Cloudflare changes | PR #4 / M6 G0 plan |
 

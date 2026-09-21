@@ -52,12 +52,32 @@ Reads with: `MASTER-PLAN.md` (decisions A1 to A10, milestones M4 and M5) and `CL
 - Disk: at least 20 GB free for Docker images and logs; `tis` itself needs well under 1 GB RAM.
 - UPS strongly recommended.
 
+### 2.1a Existing host inventory (read-only discovery, 2026-09-20)
+
+This is **not** a dedicated box. It already runs 28 other containers across several
+compose projects (a live trading stack under `scalprix-agentic-trader*`, Nextcloud,
+Jellyfin, Immich, and a Prometheus/Grafana/Loki/Tempo observability stack). Anything
+M5 automates must be additive and must not touch what is already running. Full raw
+output lives with Rehaan; the facts that constrain M5 tooling:
+
+| Area | Finding | Consequence for M5 |
+|---|---|---|
+| Docker/Compose | Engine 28.2.2, Compose 2.40.3, `data-root` at `/mnt/apps/docker-root` (not the default `/var/lib/docker`) | Nothing in `deploy/**` or `bootstrap.sh` may hardcode the default Docker root path |
+| Host ports | 22 (ssh), 80/443 (Traefik, LAN/tailscale only), 445/139 (smb), 5433/2283 (published Postgres/Immich, loopback-only), 9091, 11434 (ollama) | Torus publishes no host port at all (`tis-api` uses `expose`, `cloudflared` is outbound-only), so there is nothing to avoid here by design; confirm at G4 with `ss -tlnp` that nothing new is listening |
+| Docker networks | 8 existing bridge networks already claim `172.17.0.0/16` through `172.26.0.0/16` (`edge_net`, `obs_net`, `immich_default`, `nas_net`, three `scalprix-agentic-trader_*` networks) | `torus_internal`/`torus_egress` should land in unused pool space automatically; **G4 dry-run must include `docker network ls` to confirm no overlap/warning before sign-off** |
+| Reverse ingress | An existing `scalprix-edge_cloudflared` container already runs a separate named tunnel (own token, own `/etc/cloudflared/config.yml`) fronting Traefik for the other services | Torus's own `cloudflared` sidecar must use its own distinct tunnel name/credentials/config path; `bootstrap.sh`/`deploy.sh` must never write to or reference the existing tunnel's config |
+| Firewall (UFW) | Default deny incoming, allow outgoing. 22/tcp open broadly plus LAN/tailscale-scoped rules; 443/80 open to LAN/tailscale only, **not to the internet** — existing services rely entirely on outbound Cloudflare Tunnel, same pattern Torus uses | Torus needs **no new UFW rule of any kind**; a G0 plan that proposes opening a port is out of scope and should be rejected |
+| SSH | `PermitRootLogin no`, `PasswordAuthentication yes`, key auth also enabled, `authorized_keys` present | See 2.2 below: the original "SSH keys only" baseline is deferred, not implemented, for this shared box |
+| Backups/cron | `scalprix-backup.timer` and `backup-jellyfin.timer` already exist as systemd timers | Torus's own backup timer/service must use an unambiguous `torus-` prefix so it is never confused with the existing jobs |
+| Docker group | Only `rehaanmerchant` is a member | `deploy.sh` runs as this user; no need for `sudo docker` |
+
 ### 2.2 Security baseline (done by `deploy/host/bootstrap.sh`, reviewed at G3)
 
 | Control | Setting |
 |---|---|
-| Users | Dedicated `torus` system user owns `/opt/torus`; Rehaan's admin user has sudo; no password SSH login; SSH keys only |
-| Inbound firewall | UFW default deny incoming, allow outgoing; allow SSH only from the LAN subnet and the Docker `egress` bridge subnet (so `cloudflared` can reach sshd for Access SSH; nothing is opened to the internet) |
+| Users | Dedicated `torus` system user owns `/opt/torus`; Rehaan's existing admin user keeps its current access unchanged |
+| ~~SSH~~ **Deferred** | Original baseline called for disabling password SSH login and restricting it in UFW. **Deferred out of M5 scope** per the 2026-09-20 discovery: this box already runs other services under the current SSH/UFW config, Torus ingress is entirely outbound via its own tunnel and needs no inbound SSH change, and touching `sshd_config` or existing SSH-related UFW rules risks locking Rehaan out of everything on the box, not just Torus. `bootstrap.sh` must not modify `sshd_config` or any existing UFW rule. Revisit as its own reviewed, isolated change if Rehaan wants it later. |
+| Inbound firewall | No change made by Torus tooling. UFW is already default-deny-incoming on this host with 443/80 open to LAN/tailscale only (not the internet) and existing SSH rules unchanged; Torus adds zero new rules since ingress is outbound-only via its own Cloudflare Tunnel |
 | Port forwarding on the router | None |
 | Updates | `unattended-upgrades` for security updates daily; automatic reboot if required at Sunday 04:00 local |
 | Docker | Official Docker apt repository with its signing key; `live-restore: true`; default log driver `json-file` with `max-size 10m`, `max-file 5` in `/etc/docker/daemon.json` |
