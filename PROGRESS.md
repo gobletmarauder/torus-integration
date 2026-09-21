@@ -15,7 +15,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 | M2 Lead sync | ☑ | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | PR #5 merged; G3 PASS at `d9523fd` |
 | M3 Booking sync | ☑ | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | PR #6 merged; G3 PASS at `ca4b7ca` |
 | M4 Packaging | ☑ | ☑ | ☑ | ☑ | ☐ | n/a | n/a | Implementation PR #8; G3 PASS at `63a0563` |
-| M5 Deploy tooling | ◐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | Draft G0 plan |
+| M5 Deploy tooling | ☑ | ☑ | ☐ | ☐ | ☐ | ☐ | ☐ | Implementation PR #9; G1 green |
 | M6 Cloudflare IaC | ☑ | ☑ | ☑ | ◐ | plan reviewed ☐ | applied ☐ | n/a | PR #4; G1/G2 green |
 | M7 Cutover | n/a | n/a | n/a | ☐ | ☐ | ☐ | ☐ | |
 
@@ -479,11 +479,11 @@ Verdict: PASS. No deviations, no open questions logged by Codex. Next gate: M4 G
 
 | Task | Status | PR | Notes |
 |---|---|---|---|
-| M5.1 Idempotent host bootstrap | ☐ | | Shared-host-safe bootstrap; no SSH or UFW changes. |
-| M5.2 Digest deploy and automatic rollback | ☐ | | Runs as `rehaanmerchant`; secrets exist only on `/run` tmpfs during deploy. |
-| M5.3 Bounded smoke test | ☐ | | Health, scheduler, tunnel, and clean-start log checks. |
-| M5.4 Encrypted R2 backup | ☐ | | `torus-`-prefixed systemd job; 7 daily and 4 weekly retention. |
-| M5.5 Weekly restore test | ☐ | | Local PostgreSQL on tmpfs; plaintext is removed before exit. |
+| M5.1 Idempotent host bootstrap | ☑ | #9 | Shared-host-safe bootstrap; no SSH or UFW changes. |
+| M5.2 Digest deploy and automatic rollback | ☑ | #9 | Runs as `rehaanmerchant`; secrets exist only on `/run` tmpfs during an operation. |
+| M5.3 Bounded smoke test | ☑ | #9 | Health, scheduler, tunnel, and clean-start log checks with a 90-second ceiling. |
+| M5.4 Encrypted R2 backup | ☑ | #9 | `torus-`-prefixed systemd job; 7 daily and 4 weekly retention. |
+| M5.5 Weekly restore test | ☑ | #9 | Local PostgreSQL on tmpfs; plaintext is removed before exit. |
 
 ### M5 G0 plan (2026-09-20)
 
@@ -518,6 +518,17 @@ G4 dry-run checklist: Rehaan first captures `docker ps`, `systemctl list-timers`
 Rollback: before any host execution, close/revert the M5 implementation PR; no external state exists. During G4, kill switch remains on and `DRY_RUN=true` except for the separately approved backup/restore exercise. A failed deploy automatically restores the recorded prior tag/digests; if rollback smoke also fails, stop only the Torus Compose project, leave every other project untouched, preserve redacted logs/state, and alert Rehaan. Bootstrap writes timestamped backups before its narrowly scoped Docker/systemd changes; revert only torus-owned files/units, and never roll back the host by replacing all of `daemon.json`, SSH, UFW, Docker root, or other service configuration. Backup objects are not automatically deleted during rollback; disable the `torus-*` timers and retain ciphertext for investigation. Release images and the digest asset remain immutable audit evidence.
 
 Open questions: none for coding. Manual prerequisites before G4 are intentionally outside Codex: Rehaan replaces `AGE_PUBLIC_KEY_PLACEHOLDER` with the non-secret age recipient in a separately reviewed protected change; creates the three SOPS ciphertext files without showing Codex plaintext; installs the age private key at `/etc/torus/age/tis.key`; provides the least-privilege GitHub and R2 credentials only through encrypted files/login; and approves the one live backup/restore verification. If the host reports a Docker root other than `/mnt/apps/docker-root`, any Torus network overlap/warning, a PostgreSQL server major newer than the pinned client, or a non-no-op second bootstrap, G4 stops rather than changing the shared host.
+
+### M5 G1 implementation evidence (2026-09-21)
+
+- Tasks M5.1-M5.5 are implemented in PR #9. The implementation adds only the files and protected paths named in the approved G0 plan; no Python dependency, runtime application egress host, OAuth scope, database privilege, Terraform operation, deployment, image push, SOPS invocation, production backup, SSH setting, or firewall rule was added or executed.
+- `make check`: PASS. Ruff and format checks passed; mypy passed for 29 source files; pytest passed 232 tests with no skipped or xfailed tests and 85.90% total coverage; `scripts/guard.py` passed while reporting all 20 protected changes; pip-audit found no known vulnerability; the GPL/AGPL license gate passed; gitleaks found no leak; and the service image built successfully.
+- `make compose-config`: PASS against the synthetic fixture. The rendered Torus project has no published port, privileged/host networking, or Docker socket and keeps the backup service profile-only.
+- `make backup-image-check`: PASS. The image runs as `10001:10001`, reports PostgreSQL 17.6, rclone 1.71.1, and age 1.2.1, and contains no apt/dpkg, curl/wget, compiler, or make executable. Local size is 208,278,525 bytes. The image was built locally only and was not pushed.
+- Tests include a planted smoke failure that executes the deploy/rollback control flow, restores the recorded prior tag and both image digests, performs the second smoke attempt, confines commands to the Torus Compose wrapper, removes tmpfs dotenv files, and emits no synthetic secret. Backup tests cover guarded dry run, kill switch, deterministic upload idempotency, bounded 7-daily/4-weekly retention, out-of-prefix rejection, aggregate success state, exact R2 endpoint/bucket validation, host-timer decrypt/cleanup wiring, image hardening, secret-tree guard violations, and release-workflow permission/build-once contracts.
+- Decisions: release digests are resolved from GHCR after the exact scanned archives are pushed, using `docker buildx imagetools inspect`; the publish job never rebuilds. Each backup/restore timer invocation decrypts reviewed ciphertext into `/run/torus`, loads the recorded immutable release, strips release-only fields, runs the profile-only container, and removes plaintext on every exit or signal. `last_backup_at` is written inside the guarded upload operation so a database-state failure is audited as an error and can be retried instead of leaving a permanently successful idempotency row with stale health state.
+- Deviation/clarification: the G0 prose called `/etc/torus/age` “root-only” while also requiring non-root `rehaanmerchant` deploy and timer processes to decrypt with `/etc/torus/age/tis.key`. The implementation uses the least access that satisfies the latter requirement: directory `root:rehaanmerchant` mode `0750`, key `root:rehaanmerchant` mode `0640`, and no access for other users. No sudo rule, group membership, key, or ciphertext was created. This permission clarification is documented in both M5 runbooks and must be reviewed at G3/G4.
+- Open questions: none for G1. G2 CI, G3 review, and every manual G4 prerequisite/check in the approved plan remain pending. In particular, no real ciphertext or age key exists in this change, and no host or remote service was contacted by the implementation scripts.
 
 ### M6. Cloudflare infrastructure
 
@@ -625,6 +636,8 @@ Verdict: PASS. Next gate: M3 G4 dry-run (runs once M4 provides the runner).
 
 | Date | Decision | Why | Source (PR/plan) |
 |---|---|---|---|
+| 2026-09-21 | M5 scheduled backup and restore units decrypt reviewed ciphertext into `/run/torus` for each invocation, load the current digest record, sanitize release-only fields, and clean up on every exit | Deploy cleanup leaves no plaintext for a later timer; scheduled jobs must independently preserve the encrypted-to-tmpfs contract | PR #9 / M5 G1 |
+| 2026-09-21 | `/etc/torus/age` is root-owned and accessible only to the single deploy user (`root:rehaanmerchant` 0750; key 0640) | Resolves the G0 wording conflict between “root-only” storage and mandatory non-root deploy/timer decryption without granting sudo or broad group access | PR #9 / M5 G1 clarification |
 | 2026-09-16 | Integration layer on home server in Docker Compose; website stays on Cloudflare | Master plan A1, A2 | MASTER-PLAN |
 | 2026-09-16 | Secrets via SOPS + age; age key only on server and password manager | A6 | MASTER-PLAN |
 | 2026-09-20 | Home server discovery run before M5 scoping: 28 other containers already live (scalprix trading stack, Nextcloud, Jellyfin, Immich, observability stack), UFW default-deny with 443/80 open only to LAN/tailscale (no public inbound ports), existing `scalprix-edge_cloudflared` tunnel fronting Traefik, `PasswordAuthentication yes` + key auth, Docker data-root at `/mnt/apps/docker-root` | This is a shared box, not a dedicated one; M5 tooling must not assume greenfield | chat discovery, 2026-09-20 |

@@ -31,6 +31,8 @@ jobs:
         run: uv sync --frozen
       - name: Run G1 checks and build image
         run: make check IMAGE=tis:m0-ci
+      - name: Build and inspect backup image
+        run: make backup-image-check BACKUP_IMAGE=tis-backup:m5-ci
       - name: Scan image for fixable high and critical vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -48,11 +50,31 @@ jobs:
           output: tis-m0.cdx.json
           scanners: vuln
           skip-setup-trivy: true
+      - name: Scan backup image for fixable high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: tis-backup:m5-ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          skip-setup-trivy: true
+      - name: Generate backup CycloneDX SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: tis-backup:m5-ci
+          format: cyclonedx
+          output: tis-backup-m5.cdx.json
+          scanners: vuln
+          skip-setup-trivy: true
       - name: Upload SBOM
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: tis-m0-sbom
-          path: tis-m0.cdx.json
+          path: |
+            tis-m0.cdx.json
+            tis-backup-m5.cdx.json
           if-no-files-found: error
 
   terraform:
@@ -81,4 +103,3 @@ jobs:
       - name: Validate Terraform without backend
         if: steps.terraform.outputs.present == 'true'
         run: make tf-validate
-
