@@ -37,7 +37,7 @@ Non-Python developer/CI executables are not project dependencies: uv manages the
 | Dependency | Version | License | Why | Alternatives considered |
 |---|---:|---|---|---|
 | PostgreSQL client/server | 17.6 | PostgreSQL License | `pg_dump`/`pg_restore` plus a local tmpfs server for weekly restore verification; client major is checked against the remote server. | A second Docker daemon/container for restore was rejected because the backup job must not mount the Docker socket. |
-| rclone | 1.71.1 | MIT | R2 S3 transport with explicit object listing, verification, download, and narrow deletion commands. | A new AWS SDK dependency was rejected to avoid a large application dependency and a second in-process HTTP stack. |
+| rclone | 1.75.1 | MIT | R2 S3 transport with explicit object listing, verification, download, and narrow deletion commands. This replaces the G0-planned 1.71.1 binary because fresh CI identified fixable HIGH vulnerabilities in its Go toolchain. | A new AWS SDK dependency was rejected to avoid a large application dependency and a second in-process HTTP stack. |
 | age | 1.2.1 | BSD-3-Clause | Encrypt every dump to two recipients before any upload and decrypt only on restore-test tmpfs. | GPG was rejected because age has a smaller key-management and command surface. |
 | SOPS | 3.10.2 | MPL-2.0 | Decrypt the three reviewed production dotenv ciphertext files into `/run` tmpfs during a human deploy. | Hand-written encryption/decryption was rejected; plaintext host files are forbidden. |
 | Docker Engine / Compose | 28.2.2 / 2.40.3 | Apache-2.0 | Existing host runtime; bootstrap verifies it and uses the official signed repository only when absent. | Replacing the established shared-host runtime was rejected as unsafe. |

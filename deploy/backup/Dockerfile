@@ -8,15 +8,15 @@ FROM postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0e
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends ca-certificates curl unzip \
     && rm -rf /var/lib/apt/lists/*
-ARG RCLONE_URL=https://github.com/rclone/rclone/releases/download/v1.71.1/rclone-v1.71.1-linux-amd64.zip
-ARG RCLONE_SHA256=417e3da236f3a12d292da4e7287d67b1df558b8c2b280d092e563958ed724be7
+ARG RCLONE_URL=https://github.com/rclone/rclone/releases/download/v1.75.1/rclone-v1.75.1-linux-amd64.zip
+ARG RCLONE_SHA256=982b5aa772841168f8e380f139e9e787b2a105403e32b94da8676a0e1c0a13ab
 ARG AGE_URL=https://github.com/FiloSottile/age/releases/download/v1.2.1/age-v1.2.1-linux-amd64.tar.gz
 ARG AGE_SHA256=7df45a6cc87d4da11cc03a539a7470c15b1041ab2b396af088fe9990f7c79d50
 RUN curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error "$RCLONE_URL" -o /tmp/rclone.zip \
     && echo "$RCLONE_SHA256  /tmp/rclone.zip" | sha256sum --check --status \
     && unzip -q /tmp/rclone.zip -d /tmp/rclone \
     && mkdir -p /out \
-    && install -m 0755 /tmp/rclone/rclone-v1.71.1-linux-amd64/rclone /out/rclone
+    && install -m 0755 /tmp/rclone/rclone-v1.75.1-linux-amd64/rclone /out/rclone
 RUN curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error "$AGE_URL" -o /tmp/age.tar.gz \
     && echo "$AGE_SHA256  /tmp/age.tar.gz" | sha256sum --check --status \
     && tar -xzf /tmp/age.tar.gz -C /tmp \

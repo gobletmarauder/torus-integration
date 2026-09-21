@@ -6,7 +6,7 @@ from pathlib import Path
 def test_backup_image_is_pinned_nonroot_and_checksum_verified() -> None:
     dockerfile = Path("deploy/backup/Dockerfile").read_text(encoding="utf-8")
     assert dockerfile.count("postgres:17.6-bookworm@sha256:") == 2
-    assert "rclone-v1.71.1-linux-amd64.zip" in dockerfile
+    assert "rclone-v1.75.1-linux-amd64.zip" in dockerfile
     assert "age-v1.2.1-linux-amd64.tar.gz" in dockerfile
     assert dockerfile.count("sha256sum --check --status") == 2
     assert "USER 10001:10001" in dockerfile
