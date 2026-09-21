@@ -59,6 +59,8 @@ OPERATIONAL_URL_HOSTS: frozenset[str] = frozenset(
         "api.github.com",
         "download.docker.com",
         "github.com",
+        "proxy.golang.org",
+        "sum.golang.org",
     }
 )
 URL_PATTERN = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)

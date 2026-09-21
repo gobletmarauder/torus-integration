@@ -57,7 +57,7 @@ backup-image-check: backup-image
 	docker run --rm --entrypoint pg_dump $(BACKUP_IMAGE) --version
 	docker run --rm --entrypoint rclone $(BACKUP_IMAGE) version
 	docker run --rm --entrypoint age $(BACKUP_IMAGE) --version
-	docker run --rm --entrypoint sh $(BACKUP_IMAGE) -c 'for binary in apt apt-get dpkg curl wget gcc cc make; do ! command -v "$$binary" || exit 1; done'
+	docker run --rm --entrypoint sh $(BACKUP_IMAGE) -c 'for binary in apt apt-get dpkg gosu curl wget gcc cc make go; do ! command -v "$$binary" || exit 1; done'
 
 compose-config:
 	docker compose --env-file tests/fixtures/compose/synthetic.env -f deploy/compose.yaml config --quiet

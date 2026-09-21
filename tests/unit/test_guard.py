@@ -196,6 +196,23 @@ def test_hardcoded_url_fails(tmp_path: Path) -> None:
     assert "NET002" in result.stdout
 
 
+@pytest.mark.parametrize("host", ["proxy.golang.org", "sum.golang.org"])
+def test_go_build_hosts_are_limited_to_deploy_files(tmp_path: Path, host: str) -> None:
+    base = initialize_repository(tmp_path)
+    value = "https" + f"://{host}/module"
+    write(tmp_path, "deploy/backup/Dockerfile", f"RUN fetch {value}\n")
+
+    deploy_result = guard(tmp_path, base)
+
+    assert deploy_result.returncode == 0
+    write(tmp_path, "src/tis/module.py", f"VALUE = {value!r}\n")
+
+    source_result = guard(tmp_path, base)
+
+    assert source_result.returncode == 1
+    assert "NET002" in source_result.stdout
+
+
 def test_service_url_literal_outside_http_module_fails(tmp_path: Path) -> None:
     base = initialize_repository(tmp_path)
     value = "https" + "://us.i.posthog.com/capture"
