@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M4 · **Current gate:** G4 dry-run (G3 PASS) · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M5 · **Current gate:** G3 review (G2 PASS) · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -15,7 +15,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 | M2 Lead sync | ☑ | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | PR #5 merged; G3 PASS at `d9523fd` |
 | M3 Booking sync | ☑ | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | PR #6 merged; G3 PASS at `ca4b7ca` |
 | M4 Packaging | ☑ | ☑ | ☑ | ☑ | ☐ | n/a | n/a | Implementation PR #8; G3 PASS at `63a0563` |
-| M5 Deploy tooling | ☑ | ☑ | ☐ | ☐ | ☐ | ☐ | ☐ | Implementation PR #9; G1 green |
+| M5 Deploy tooling | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | ☐ | Implementation PR #9; G2 green at `de0325a` |
 | M6 Cloudflare IaC | ☑ | ☑ | ☑ | ◐ | plan reviewed ☐ | applied ☐ | n/a | PR #4; G1/G2 green |
 | M7 Cutover | n/a | n/a | n/a | ☐ | ☐ | ☐ | ☐ | |
 
@@ -530,7 +530,7 @@ Open questions: none for coding. Manual prerequisites before G4 are intentionall
 - Deviation/clarification: the G0 prose called `/etc/torus/age` “root-only” while also requiring non-root `rehaanmerchant` deploy and timer processes to decrypt with `/etc/torus/age/tis.key`. The implementation uses the least access that satisfies the latter requirement: directory `root:rehaanmerchant` mode `0750`, key `root:rehaanmerchant` mode `0640`, and no access for other users. No sudo rule, group membership, key, or ciphertext was created. This permission clarification is documented in both M5 runbooks and must be reviewed at G3/G4.
 - Open questions: none for G1. G2 CI, G3 review, and every manual G4 prerequisite/check in the approved plan remain pending. In particular, no real ciphertext or age key exists in this change, and no host or remote service was contacted by the implementation scripts.
 
-### M5 G0 security amendment (2026-09-21; approval required)
+### M5 G0 security amendment (2026-09-21; approved)
 
 Scope: M5.4 and M5.5 dependency hardening only. Fresh G2 Trivy data rejected the approved backup image: rclone 1.71.1 was built with vulnerable Go 1.25.1; a trial of the current rclone 1.75.1 release binary still contained fixed HIGH `google.golang.org/grpc` CVE-2026-84445; age 1.2.1 and inherited `gosu` binaries contained additional fixable Go findings; and the pinned PostgreSQL base has fixable Debian packages. The scan remains enabled and CI fails closed. The ineffective trial pin is reverted from the final diff pending approval of this complete amendment.
 
@@ -546,7 +546,16 @@ New scopes/privileges: none. External writes added: none. The backup commands, o
 
 Tests: build the amended image; assert exact Go/rclone/gRPC/age pins and final uid; assert apt/dpkg, `gosu`, curl/wget, compilers, make, and Go are absent; run PostgreSQL/rclone/age version probes; scan the exact saved image with a fresh Trivy database and fail on fixable HIGH/CRITICAL findings; then rerun `make check`, `make compose-config`, `make backup-image-check`, G2 CI, and `make verify-bundle MILESTONE=M5`. No skip, ignore rule, severity reduction, or vulnerability exception will be added.
 
-Rollback: revert only the amendment commit to return to the approved but G2-failing image; do not publish or deploy either image. Open questions: none. Implementation is paused until Rehaan comments `G0 approved` on this security amendment.
+Rollback: revert only the amendment commit to return to the approved but G2-failing image; do not publish or deploy either image. Open questions: none. Rehaan approved this amendment in PR #9 before implementation.
+
+### M5 security-amendment G1/G2 evidence (2026-09-21)
+
+- Commit `de0325a` implements only the approved amendment files. rclone 1.75.1 is built from exact release commit `687d264b689b8c49a67e2e52a8a5e0caa01c04ce` with the complete checksum-verified module graph and the exact gRPC 1.83.2 override; age is 1.3.2; the build-only toolchain is Go 1.26.8 from the approved digest. `proxy.golang.org` and `sum.golang.org` are accepted only in `deploy/**`; planted tests prove either host still fails with `NET002` in application source.
+- Local deterministic `make check` stages passed: Ruff, format, mypy for 29 files, 234 tests with no skips/xfails and 85.90% total coverage, guard with 20 protected changes, license policy, gitleaks, and the service image build. The overall local command could not finish because repeated `pip-audit` requests to both PyPI and OSV were reset or timed out by the host network; no check was changed or bypassed. The same unchanged `make check` completed in G2 CI with `No known vulnerabilities found`.
+- `make compose-config`: PASS with the synthetic environment. `make backup-image-check`: PASS; final image user `10001:10001`, PostgreSQL 17.11, rclone 1.75.1 built with Go 1.26.8, age 1.3.2, and no apt/dpkg, `gosu`, curl/wget, compiler, make, or Go executable. Local image size is 276,752,595 bytes. No image was pushed.
+- A fresh Trivy 0.69.3 database scan of the exact locally saved image found zero fixable HIGH/CRITICAL findings in Debian packages, Python packages, age, or rclone; the temporary archive was deleted. G2 CI run `35572998610` passed both jobs and independently scanned the backup image with Trivy 0.70.0: zero findings, with CycloneDX SBOM generation successful.
+- Decisions: use `go mod download all` after applying the exact gRPC replacement so every transitive module checksum is present before compilation; upgrade signed Debian packages in the final stage, then remove apt/dpkg and inherited `gosu`; keep Go infrastructure hosts separate from runtime `EGRESS_ALLOWLIST`. No secrets, production writes, host changes, deploy, SOPS operation, registry push, or external-service mutation occurred.
+- Deviations: the approved dependency and code plan is unchanged. The only verification-environment deviation is the failed local vulnerability-service connection described above; exact CI execution supplies the passing audit evidence. Open questions: none. G3 review remains pending.
 
 ### M6. Cloudflare infrastructure
 
