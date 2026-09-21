@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M4 · **Current gate:** G2 awaiting CI · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M4 · **Current gate:** G3 awaiting verification · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -14,7 +14,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 | M1 Core library | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #3 merged; G3 PASS at `45a022b4` |
 | M2 Lead sync | ☑ | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | PR #5 merged; G3 PASS at `d9523fd` |
 | M3 Booking sync | ☑ | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | PR #6 merged; G3 PASS at `ca4b7ca` |
-| M4 Packaging | ☑ | ☑ | ◐ | ☐ | ☐ | n/a | n/a | Implementation PR #8; G1 green |
+| M4 Packaging | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | n/a | Implementation PR #8; G1/G2 green |
 | M5 Deploy tooling | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M6 Cloudflare IaC | ☑ | ☑ | ☑ | ◐ | plan reviewed ☐ | applied ☐ | n/a | PR #4; G1/G2 green |
 | M7 Cutover | n/a | n/a | n/a | ☐ | ☐ | ☐ | ☐ | |
@@ -447,6 +447,7 @@ Open questions: none. M4 uses database-only keepalive with the existing `DATABAS
 - `make check`: PASS. Ruff check/format and strict mypy passed; pytest passed 209 tests with 89.06% total coverage and no skips/xfails; repository guard passed while reporting the three approved protected paths; pip-audit found no known vulnerabilities; the license gate passed; gitleaks found no leaks; and the digest-pinned multi-stage image built successfully.
 - `make compose-config`: PASS using only `tests/fixtures/compose/synthetic.env`; the production Compose definition parsed without credentials or container startup.
 - `make image-size`: PASS. The local image is 54.9 MB, runs as `10001:10001`, and contains a healthcheck.
+- G2 CI: PASS on PR #8 at `c583c4d`; the full `checks` job passed in 1m34s and the conditional Terraform format/validation job passed in 10s.
 - Planted safety tests: PASS. Tests reject noncanonical Access issuers/hosts, wrong JWT audience/algorithm/key/claims, malformed or empty JWKS, unknown-key rotation failure, unsafe scheduler intervals, missing health dependencies, mutable deployment image references, and each host-health threshold. Dry-run and kill-switch heartbeat paths issue zero HTTP and record `skipped` through the existing guard.
 
 **M4 decisions and open questions**
