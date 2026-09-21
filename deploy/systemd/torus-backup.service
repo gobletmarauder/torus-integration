@@ -1,0 +1,18 @@
+[Unit]
+Description=Torus encrypted database backup
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=rehaanmerchant
+Group=docker
+WorkingDirectory=/opt/torus/app
+ExecStart=/usr/bin/flock --nonblock /opt/torus/state/torus-backup.lock /opt/torus/app/deploy/backup/backup.sh --host-run
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/torus/state /run/torus
+
+[Install]
+WantedBy=multi-user.target

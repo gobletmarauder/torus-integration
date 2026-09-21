@@ -44,10 +44,15 @@ def test_release_privileges_and_exact_image_handoff() -> None:
     assert "packages: write" not in build
     assert "contents: read" in build
     assert publish.count("packages: write") == 1
+    assert publish.count("contents: write") == 1
     assert "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c" in publish
     assert "docker load --input tis-release-image.tar" in publish
     assert "docker push" in publish
-    assert "docker build" not in publish
+    assert "tis-backup-release-image.tar" in workflow
+    assert "torus-release-digests.env" in publish
+    assert "docker buildx imagetools inspect" in publish
+    assert "cmp --silent" in publish
+    assert re.search(r"(?m)^\s*docker build(?:\s|$)", publish) is None
     assert "docker/build-push-action" not in workflow
 
 

@@ -54,6 +54,13 @@ ALLOWED_URL_HOSTS: frozenset[str] = frozenset(
         "www.zohoapis.com",
     }
 )
+OPERATIONAL_URL_HOSTS: frozenset[str] = frozenset(
+    {
+        "api.github.com",
+        "download.docker.com",
+        "github.com",
+    }
+)
 URL_PATTERN = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
 ENCODED_PATTERN = re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{201,}={0,2}(?![A-Za-z0-9+/])")
 SQL_PATTERN = re.compile(
@@ -223,6 +230,8 @@ def scan_text(path: Path, root: Path, text: str) -> list[Finding]:
             )
         for match in () if path.suffix == ".tf" else URL_PATTERN.finditer(line):
             host = (urlsplit(match.group(0)).hostname or "").lower()
+            if relative.startswith("deploy/") and host in OPERATIONAL_URL_HOSTS:
+                continue
             if host in ALLOWED_URL_HOSTS and relative != "src/tis/http.py":
                 findings.append(
                     Finding(
@@ -303,7 +312,10 @@ def scan_workflow(path: str, text: str) -> list[Finding]:
             )
     for match in WRITE_PERMISSION_PATTERN.finditer(text):
         permission = match.group(1)
-        allowed = path == ".github/workflows/release.yml" and permission == "packages"
+        allowed = path == ".github/workflows/release.yml" and permission in {
+            "contents",
+            "packages",
+        }
         if not allowed:
             line_number = text.count("\n", 0, match.start()) + 1
             findings.append(Finding(path, line_number, "CI003", "workflow permission is too broad"))
@@ -365,6 +377,7 @@ def scan_repository(root: Path, base: str | None) -> tuple[list[Finding], list[s
             findings.extend(scan_text(path, root, text))
 
     changed = changed_files(root, base)
+    findings.extend(scan_secret_tree(root))
     dependency_files = {"pyproject.toml", "uv.lock"}
     if dependency_files.intersection(changed) and "docs/dependencies.md" not in changed:
         findings.append(
@@ -389,6 +402,46 @@ def scan_repository(root: Path, base: str | None) -> tuple[list[Finding], list[s
                 )
             )
     return sorted(set(findings)), protected
+
+
+def scan_secret_tree(root: Path) -> list[Finding]:
+    """Reject tracked plaintext or malformed ciphertext without emitting any values."""
+    status, output = run_git(root, ["ls-files", "secrets"])
+    if status != 0:
+        return []
+    findings: list[Finding] = []
+    allowed = {
+        "secrets/.gitignore",
+        "secrets/README.md",
+        "secrets/tis.enc.env",
+        "secrets/cloudflared.enc.env",
+        "secrets/backup.enc.env",
+    }
+    for relative in sorted(line.strip() for line in output.splitlines() if line.strip()):
+        if relative not in allowed:
+            findings.append(
+                Finding(relative, 1, "SEC001", "tracked secret-tree path is not approved")
+            )
+            continue
+        if not relative.endswith(".enc.env"):
+            continue
+        text = read_text(root / relative)
+        if text is None or "sops_mac=ENC[AES256_GCM," not in text or "sops_version=" not in text:
+            findings.append(
+                Finding(relative, 1, "SEC002", "tracked secret file lacks SOPS metadata")
+            )
+            continue
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            if not key.startswith("sops_") and not value.startswith("ENC[AES256_GCM,"):
+                findings.append(
+                    Finding(
+                        relative, line_number, "SEC003", "tracked secret value is not encrypted"
+                    )
+                )
+    return findings
 
 
 def read_runtime_allowlist(path: Path) -> frozenset[str] | None:

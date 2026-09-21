@@ -20,4 +20,6 @@ infra/cloudflare/plan.txt
 infra/cloudflare/*.tfvars
 infra/cloudflare/*.tfvars.json
 infra/cloudflare/backend*.hcl
-
+deploy/backup/*.tar
+deploy/backup/*.tar.gz
+deploy/backup/*.image-id
