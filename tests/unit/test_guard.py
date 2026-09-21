@@ -105,7 +105,8 @@ def test_http_module_is_the_only_httpx_import_exception(tmp_path: Path) -> None:
         "src/tis/http.py",
         "im"
         + "port httpx\nEGRESS_ALLOWLIST = frozenset({'accounts.zoho.com', "
-        + "'oauth2.googleapis.com', 'uptime.betterstack.com', 'us.i.posthog.com', "
+        + "'oauth2.googleapis.com', 'torusmesh.cloudflareaccess.com', "
+        + "'uptime.betterstack.com', 'us.i.posthog.com', "
         + "'www.googleapis.com', 'www.zohoapis.com'})\n",
     )
 
@@ -204,6 +205,17 @@ def test_service_url_literal_outside_http_module_fails(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "NET003" in result.stdout
+
+
+def test_unapproved_access_team_host_fails(tmp_path: Path) -> None:
+    base = initialize_repository(tmp_path)
+    value = "https" + "://other-team.cloudflareaccess.com/cdn-cgi/access/certs"
+    write(tmp_path, "src/tis/http.py", f"VALUE = {value!r}\n")
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 1
+    assert "NET002" in result.stdout
 
 
 def test_runtime_and_guard_egress_allowlists_must_match(tmp_path: Path) -> None:

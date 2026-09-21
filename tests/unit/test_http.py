@@ -104,3 +104,8 @@ def test_google_hosts_are_exact_and_sensitive_query_values_are_redacted() -> Non
     google_url = "https" + "://www.googleapis.com/calendar/v3/events"
     safe = _safe_url(http_module.httpx.URL(google_url + "?syncToken=opaque&pageToken=next&email=x"))
     assert "opaque" not in safe and "next" not in safe and "email=x" not in safe
+
+
+def test_cloudflare_access_host_is_exact() -> None:
+    assert "torusmesh.cloudflareaccess.com" in EGRESS_ALLOWLIST
+    assert not any(host.startswith("*.") for host in EGRESS_ALLOWLIST)
