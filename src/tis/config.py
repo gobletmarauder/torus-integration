@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     posthog_budget_per_day: int = Field(default=200, gt=0)
     betterstack_budget_per_run: int = Field(default=10, gt=0)
     betterstack_budget_per_day: int = Field(default=400, gt=0)
+    r2_upload_budget_per_run: int = Field(default=1, ge=1, le=1)
+    r2_upload_budget_per_day: int = Field(default=1, ge=1, le=1)
+    r2_retention_budget_per_run: int = Field(default=1, ge=1, le=1)
+    r2_retention_budget_per_day: int = Field(default=1, ge=1, le=1)
     zoho_create_budget_per_run: int = Field(default=25, gt=0, le=25)
     zoho_create_budget_per_day: int = Field(default=200, gt=0)
     zoho_booking_budget_per_run: int = Field(default=10, gt=0, le=10)
@@ -49,6 +53,15 @@ class Settings(BaseSettings):
     betterstack_keepalive_url: HttpUrl | None = None
     betterstack_host_health_url: HttpUrl | None = None
     betterstack_backup_url: HttpUrl | None = None
+    betterstack_restore_test_url: HttpUrl | None = None
+    backup_database_dsn: SecretStr | None = None
+    r2_access_key_id: SecretStr | None = None
+    r2_secret_access_key: SecretStr | None = None
+    r2_endpoint: HttpUrl | None = None
+    r2_bucket: str | None = None
+    backup_age_recipient: SecretStr | None = None
+    recovery_age_recipient: SecretStr | None = None
+    restore_test_age_private_key: SecretStr | None = None
     zoho_client_id: SecretStr | None = None
     zoho_client_secret: SecretStr | None = None
     zoho_refresh_token: SecretStr | None = None
@@ -118,6 +131,15 @@ class Settings(BaseSettings):
             if domain != "torusmesh.cloudflareaccess.com":
                 raise ValueError("Cloudflare Access must use the approved team domain")
             self.cloudflare_access_team_domain = domain
+        if self.r2_endpoint is not None:
+            host = str(self.r2_endpoint.host or "").lower().rstrip(".")
+            if self.r2_endpoint.scheme != "https" or not host.endswith(".r2.cloudflarestorage.com"):
+                raise ValueError("R2_ENDPOINT must be an account-scoped Cloudflare R2 endpoint")
+            account = host.removesuffix(".r2.cloudflarestorage.com")
+            if not account or "." in account:
+                raise ValueError("R2_ENDPOINT must contain exactly one account identifier")
+        if self.r2_bucket is not None and self.r2_bucket != "torus-backups":
+            raise ValueError("R2_BUCKET must be torus-backups")
         return self
 
 

@@ -18,7 +18,7 @@ services:
     user: "10001:10001"
     command: ["python", "-m", "tis.scheduler"]
     env_file:
-      - path: "${TIS_ENV_FILE:-/run/torus/tis.env}"
+      - path: "${TIS_ENV_FILE:-/run/torus/torus-tis.env}"
         required: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
     volumes:
@@ -39,7 +39,7 @@ services:
     user: "10001:10001"
     command: ["uvicorn", "tis.api.app:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers"]
     env_file:
-      - path: "${TIS_ENV_FILE:-/run/torus/tis.env}"
+      - path: "${TIS_ENV_FILE:-/run/torus/torus-tis.env}"
         required: true
     tmpfs: ["/tmp:size=32m,mode=1777"]
     expose: ["8080"]
@@ -56,11 +56,13 @@ services:
     <<: *hardening
     image: "cloudflare/cloudflared@${CLOUDFLARED_DIGEST}"
     user: "65532:65532"
-    command: ["tunnel", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "run"]
+    command: ["--config", "/etc/cloudflared/torus-cloudflared.yml", "tunnel", "run"]
     env_file:
-      - path: "${CLOUDFLARED_ENV_FILE:-/run/torus/cloudflared.env}"
+      - path: "${CLOUDFLARED_ENV_FILE:-/run/torus/torus-cloudflared.env}"
         required: true
     extra_hosts: ["host-gateway:host-gateway"]
+    volumes:
+      - ./cloudflared/torus-cloudflared.yml:/etc/cloudflared/torus-cloudflared.yml:ro
     networks: [internal, egress]
     mem_limit: 128m
     cpus: 0.25
@@ -70,17 +72,20 @@ services:
       timeout: 5s
       retries: 3
 
-  backup:
+  torus-backup:
     <<: *hardening
     image: "ghcr.io/${GHCR_OWNER}/tis-backup@${BACKUP_DIGEST}"
     user: "10001:10001"
     env_file:
-      - path: "${BACKUP_ENV_FILE:-/run/torus/backup.env}"
+      - path: "${TIS_ENV_FILE:-/run/torus/torus-tis.env}"
+        required: true
+      - path: "${BACKUP_ENV_FILE:-/run/torus/torus-backup.env}"
         required: true
     tmpfs: ["/tmp:size=1g,mode=1777", "/work:size=1g,mode=1777"]
     networks: [egress]
     mem_limit: 512m
     cpus: 0.5
+    profiles: ["backup"]
 
 networks:
   internal:
