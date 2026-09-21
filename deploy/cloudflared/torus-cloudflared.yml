@@ -1,0 +1,3 @@
+# Torus-only local client settings. Ingress remains remotely managed by Cloudflare.
+no-autoupdate: true
+metrics: 0.0.0.0:2000

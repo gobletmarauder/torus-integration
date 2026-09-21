@@ -2,6 +2,7 @@ UV ?= uv
 PYTHON ?= $(UV) run python
 IMAGE ?= tis:local
 export IMAGE
+BACKUP_IMAGE ?= tis-backup:local
 GITLEAKS_IMAGE := ghcr.io/gitleaks/gitleaks:v8.30.0@sha256:691af3c7c5a48b16f187ce3446d5f194838f91238f27270ed36eef6359a574d9
 
 ifeq ($(OS),Windows_NT)
@@ -12,7 +13,7 @@ BASH ?= bash
 ROOT_MOUNT := $(CURDIR)
 endif
 
-.PHONY: setup check test lint type guard audit license build image-size compose-config verify-bundle tf-fmt tf-validate tf-init tf-lint tf-plan tf-gate tf-apply
+.PHONY: setup check test lint type guard audit license build image-size backup-image backup-image-check compose-config verify-bundle tf-fmt tf-validate tf-init tf-lint tf-plan tf-gate tf-apply
 
 TF_DIR := infra/cloudflare
 TF_VARS ?= $(TF_DIR)/terraform.tfvars
@@ -47,6 +48,16 @@ build:
 
 image-size: build
 	$(PYTHON) scripts/check_image.py $(IMAGE)
+
+backup-image:
+	docker build --file deploy/backup/Dockerfile --tag $(BACKUP_IMAGE) .
+
+backup-image-check: backup-image
+	docker image inspect $(BACKUP_IMAGE) --format '{{.Config.User}}'
+	docker run --rm --entrypoint pg_dump $(BACKUP_IMAGE) --version
+	docker run --rm --entrypoint rclone $(BACKUP_IMAGE) version
+	docker run --rm --entrypoint age $(BACKUP_IMAGE) --version
+	docker run --rm --entrypoint sh $(BACKUP_IMAGE) -c 'for binary in apt apt-get dpkg gosu curl wget gcc cc make go; do ! command -v "$$binary" || exit 1; done'
 
 compose-config:
 	docker compose --env-file tests/fixtures/compose/synthetic.env -f deploy/compose.yaml config --quiet

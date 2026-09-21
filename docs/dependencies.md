@@ -32,3 +32,20 @@ All direct dependencies are exact-pinned in `pyproject.toml` and resolved with h
 
 Non-Python developer/CI executables are not project dependencies: uv manages the lock/environment; Docker/Buildx builds the image; gitleaks scans for secrets; Trivy scans the image and produces the SBOM; Terraform is invoked only for formatting and validation when infrastructure files exist.
 
+## M5 host and backup-image tools
+
+| Dependency | Version | License | Why | Alternatives considered |
+|---|---:|---|---|---|
+| PostgreSQL client/server | 17.6 digest-pinned base; 17.11 after the G1 signed-package upgrade | PostgreSQL License | `pg_dump`/`pg_restore` plus a local tmpfs server for weekly restore verification; client major is checked against the remote server. Signed Debian packages are upgraded during the image build so security patches are not stranded at the base-image version. | A second Docker daemon/container for restore was rejected because the backup job must not mount the Docker socket. |
+| rclone | 1.75.1 (`687d264b689b8c49a67e2e52a8a5e0caa01c04ce`) | MIT | R2 S3 transport with explicit object listing, verification, download, and narrow deletion commands; source-built from the signed release commit so its fixed dependency graph is reviewable. | The upstream release binary still contained a fixable HIGH gRPC finding; a new AWS SDK dependency was rejected to avoid a large application dependency and a second in-process HTTP stack. |
+| google.golang.org/grpc | 1.83.2 | Apache-2.0 | Build-only rclone module override containing the published fix for CVE-2026-84445. | Keeping rclone's vulnerable locked version or exempting the finding was rejected because the image gate must fail on fixable HIGH/CRITICAL findings. |
+| Go toolchain | 1.26.8 | BSD-3-Clause | Build-only, digest-pinned toolchain used to compile the exact rclone release with the fixed gRPC module. | The rclone 1.75.1 release binary was rejected because its embedded module remained vulnerable; no compiler or module cache enters the final image. |
+| age | 1.3.2 | BSD-3-Clause | Encrypt every dump to two recipients before any upload and decrypt only on restore-test tmpfs. | age 1.2.1 had fixable findings; GPG was rejected because age has a smaller key-management and command surface. |
+| SOPS | 3.10.2 | MPL-2.0 | Decrypt the three reviewed production dotenv ciphertext files into `/run` tmpfs during a human deploy. | Hand-written encryption/decryption was rejected; plaintext host files are forbidden. |
+| Docker Engine / Compose | 28.2.2 / 2.40.3 | Apache-2.0 | Existing host runtime; bootstrap verifies it and uses the official signed repository only when absent. | Replacing the established shared-host runtime was rejected as unsafe. |
+
+The PostgreSQL and Go base images are digest-pinned. rclone is source-built from its exact signed
+release commit with the upstream `go.sum` verification plus the exact gRPC override. The age and
+SOPS downloads are exact-versioned and SHA-256 verified; age 1.3.2 uses
+`cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10`. These tools do not change
+the Python lockfile, and the Go compiler and module cache remain outside the final image.

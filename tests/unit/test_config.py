@@ -150,3 +150,19 @@ def test_environment_files_are_ignored_but_example_is_retained() -> None:
     assert ".env" in patterns
     assert ".env.*" in patterns
     assert "!.env.example" in patterns
+
+
+def test_r2_endpoint_bucket_and_budgets_are_fail_closed() -> None:
+    settings = Settings(
+        r2_endpoint=service_url("synthetic-account.r2.cloudflarestorage.com"),
+        r2_bucket="torus-backups",
+        _env_file=None,
+    )
+    assert settings.r2_upload_budget_per_run == 1
+    assert settings.r2_retention_budget_per_day == 1
+    with pytest.raises(ValidationError, match="account-scoped"):
+        Settings(r2_endpoint=service_url("example.com"), _env_file=None)
+    with pytest.raises(ValidationError, match="torus-backups"):
+        Settings(r2_bucket="different-bucket", _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(r2_upload_budget_per_day=2, _env_file=None)

@@ -196,6 +196,23 @@ def test_hardcoded_url_fails(tmp_path: Path) -> None:
     assert "NET002" in result.stdout
 
 
+@pytest.mark.parametrize("host", ["proxy.golang.org", "sum.golang.org"])
+def test_go_build_hosts_are_limited_to_deploy_files(tmp_path: Path, host: str) -> None:
+    base = initialize_repository(tmp_path)
+    value = "https" + f"://{host}/module"
+    write(tmp_path, "deploy/backup/Dockerfile", f"RUN fetch {value}\n")
+
+    deploy_result = guard(tmp_path, base)
+
+    assert deploy_result.returncode == 0
+    write(tmp_path, "src/tis/module.py", f"VALUE = {value!r}\n")
+
+    source_result = guard(tmp_path, base)
+
+    assert source_result.returncode == 1
+    assert "NET002" in source_result.stdout
+
+
 def test_service_url_literal_outside_http_module_fails(tmp_path: Path) -> None:
     base = initialize_repository(tmp_path)
     value = "https" + "://us.i.posthog.com/capture"
@@ -315,6 +332,50 @@ def test_broad_workflow_permission_fails(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "CI003" in result.stdout
     assert "CI004" in result.stdout
+
+
+def test_release_workflow_may_write_only_contents_and_packages(tmp_path: Path) -> None:
+    base = initialize_repository(tmp_path)
+    workflow = SAFE_WORKFLOW + "  contents: write\n  packages: write\n"
+    write(tmp_path, ".github/workflows/release.yml", workflow)
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 0
+
+
+def test_secret_tree_rejects_plaintext_and_unapproved_names_without_values(tmp_path: Path) -> None:
+    base = initialize_repository(tmp_path)
+    planted_value = "planted-sensitive-value"
+    write(tmp_path, "secrets/tis.enc.env", f"TOKEN={planted_value}\n")
+    run(["git", "add", "-f", "secrets/tis.enc.env"], tmp_path)
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 1
+    assert "SEC002" in result.stdout
+    assert planted_value not in result.stdout
+
+    write(tmp_path, "secrets/unapproved.env", "VALUE=synthetic\n")
+    run(["git", "add", "-f", "secrets/unapproved.env"], tmp_path)
+    result = guard(tmp_path, base)
+    assert result.returncode == 1
+    assert "SEC001" in result.stdout
+
+
+def test_secret_tree_accepts_sops_shaped_ciphertext(tmp_path: Path) -> None:
+    base = initialize_repository(tmp_path)
+    ciphertext = (
+        "TOKEN=ENC[AES256_GCM,data:synthetic,iv:synthetic,tag:synthetic,type:str]\n"
+        "sops_mac=ENC[AES256_GCM,data:synthetic,iv:synthetic,tag:synthetic,type:str]\n"
+        "sops_version=3.10.2\n"
+    )
+    write(tmp_path, "secrets/tis.enc.env", ciphertext)
+    run(["git", "add", "-f", "secrets/tis.enc.env"], tmp_path)
+
+    result = guard(tmp_path, base)
+
+    assert result.returncode == 0
 
 
 @pytest.mark.parametrize(
