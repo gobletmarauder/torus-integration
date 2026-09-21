@@ -1,5 +1,7 @@
 """Configuration safety tests."""
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -92,3 +94,59 @@ def test_enabled_booking_sync_requires_google_settings_and_exact_hosts() -> None
         Settings(
             **{**common, "google_calendar_api_url": service_url("example.com")}, _env_file=None
         )
+
+
+def test_m4_intervals_enforce_safe_minimums() -> None:
+    with pytest.raises(ValidationError):
+        Settings(lead_sync_interval_seconds=29, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(booking_sync_interval_seconds=119, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(host_health_interval_seconds=299, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(keepalive_interval_seconds=86_399, _env_file=None)
+
+
+def test_enabled_health_jobs_require_database_and_heartbeat() -> None:
+    with pytest.raises(ValidationError, match="keepalive settings"):
+        Settings(keepalive_enabled=True, _env_file=None)
+    with pytest.raises(ValidationError, match="host health settings"):
+        Settings(host_health_enabled=True, _env_file=None)
+    keepalive = Settings(
+        keepalive_enabled=True,
+        database_dsn="postgresql://synthetic.invalid/db",
+        betterstack_keepalive_url=service_url("uptime.betterstack.com") + "/synthetic",
+        _env_file=None,
+    )
+    assert keepalive.keepalive_enabled
+
+
+def test_access_team_domain_is_exact_and_audience_is_secret() -> None:
+    settings = Settings(
+        cloudflare_access_team_domain="torusmesh.cloudflareaccess.com.",
+        cloudflare_access_audience="synthetic-audience",
+        _env_file=None,
+    )
+    assert settings.cloudflare_access_team_domain == "torusmesh.cloudflareaccess.com"
+    assert "synthetic-audience" not in repr(settings)
+    with pytest.raises(ValidationError, match="approved team domain"):
+        Settings(cloudflare_access_team_domain="example.com", _env_file=None)
+
+
+def test_environment_example_matches_settings_and_google_contract() -> None:
+    lines = Path(".env.example").read_text(encoding="utf-8").splitlines()
+    names = [line.partition("=")[0] for line in lines if line and not line.startswith("#")]
+    for field in Settings.model_fields:
+        assert names.count(field.upper()) == 1
+    assert "GOOGLE_PRIVATE_KEY" not in names
+    assert names.count("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY") == 1
+    assert names.count("GOOGLE_TOKEN_URL") == 1
+    assert names.count("GOOGLE_CALENDAR_API_URL") == 1
+    assert all(line.endswith("=") for line in lines if line and not line.startswith("#"))
+
+
+def test_environment_files_are_ignored_but_example_is_retained() -> None:
+    patterns = Path(".gitignore").read_text(encoding="utf-8").splitlines()
+    assert ".env" in patterns
+    assert ".env.*" in patterns
+    assert "!.env.example" in patterns

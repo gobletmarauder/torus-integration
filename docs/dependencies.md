@@ -6,13 +6,17 @@ All direct dependencies are exact-pinned in `pyproject.toml` and resolved with h
 
 | Dependency | Version | License | Why | Alternatives considered |
 |---|---:|---|---|---|
+| APScheduler | 3.11.3 | MIT | AsyncIO-native interval scheduling with overlap prevention, coalescing, and bounded misfire handling. | A custom sleep loop; rejected because correct overlap and shutdown behavior is concurrency-sensitive. |
+| PyJWT | 2.14.0 | MIT | Strict local RS256 Cloudflare Access JWT validation using the existing cryptography package. It performs no network I/O. | Authlib adds broader OAuth machinery; hand-written JWT parsing is error-prone. |
 | cryptography | 50.0.1 | Apache-2.0 OR BSD-3-Clause | Load the Google service-account PEM key and produce a reviewed RS256 JWT signature without adding a network-aware Google client. | `google-api-python-client` and `google-auth` could bypass `ControlledClient`; PyJWT/Authlib add unnecessary JWT abstraction; the standard library has no safe RSA signer. |
+| fastapi | 0.141.1 | MIT | Typed internal health and operations endpoints with lifespan-managed resources and closed response models. | Starlette directly; rejected because FastAPI's dependency and response-model validation make the access boundary clearer. |
 | pydantic | 2.13.5 | MIT | Explicit models for configuration and external payloads. | Relying on a transitive install; rejected because direct runtime dependencies must be reviewable. |
 | pydantic-settings | 2.15.0 | MIT | Typed environment configuration and validation. | Hand-written environment parsing; rejected because it duplicates validation and error reporting. |
 | httpx | 0.28.1 | BSD-3-Clause | Async HTTP client used only through `tis.http`. | aiohttp and requests; rejected by repository network policy. |
 | psycopg | 3.3.6 | LGPL-3.0-only | Psycopg 3 async PostgreSQL interface. | asyncpg; rejected because the master plan specifies Psycopg and its pool. |
 | psycopg-binary | 3.3.6 | LGPL-3.0-only | Prebuilt libpq implementation for deterministic CI/runtime installs. | Source build; rejected because final images must not contain compilers. |
 | psycopg-pool | 3.3.2 | LGPL-3.0-only | Async PostgreSQL connection pooling. | Custom pooling; rejected as unsafe concurrency infrastructure. |
+| uvicorn | 0.53.0 | BSD-3-Clause | Minimal pure-Python ASGI server for the internal API, without optional extras. | Hypercorn; rejected because the deployment needs one small, conventional ASGI process. |
 
 ## Development dependencies
 

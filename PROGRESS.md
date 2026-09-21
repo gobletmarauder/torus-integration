@@ -2,7 +2,7 @@
 
 Updated by Codex on every task and by Rehaan at every gate. Newest entries at the top of each section. Dates in YYYY-MM-DD, times UTC.
 
-**Current milestone:** M4 · **Current gate:** G0 awaiting approval · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
+**Current milestone:** M4 · **Current gate:** G3 awaiting verification · **Production version:** none · **DRY_RUN in prod:** n/a · **Kill switch:** n/a
 
 ---
 
@@ -14,7 +14,7 @@ Updated by Codex on every task and by Rehaan at every gate. Newest entries at th
 | M1 Core library | ☑ | ☑ | ☑ | ☑ | n/a | n/a | n/a | PR #3 merged; G3 PASS at `45a022b4` |
 | M2 Lead sync | ☑ | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | PR #5 merged; G3 PASS at `d9523fd` |
 | M3 Booking sync | ☑ | ☑ | ☑ | ☑ | ☐ | ☐ | ☐ | PR #6 merged; G3 PASS at `ca4b7ca` |
-| M4 Packaging | ◐ | ☐ | ☐ | ☐ | ☐ | n/a | n/a | G0 plan in draft PR |
+| M4 Packaging | ☑ | ☑ | ☑ | ◐ | ☐ | n/a | n/a | Implementation PR #8; G1/G2 green |
 | M5 Deploy tooling | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
 | M6 Cloudflare IaC | ☑ | ☑ | ☑ | ◐ | plan reviewed ☐ | applied ☐ | n/a | PR #4; G1/G2 green |
 | M7 Cutover | n/a | n/a | n/a | ☐ | ☐ | ☐ | ☐ | |
@@ -399,11 +399,11 @@ Open questions: before implementation, Rehaan must provide the exact Zoho bookin
 
 | Task | Status | PR | Notes |
 |---|---|---|---|
-| M4.1 Scheduler and runtime assembly | ◐ | draft | APScheduler job registration, overlap prevention, success-only heartbeats, last-run state, and watchdog health. |
-| M4.2 Keepalive and host-health jobs | ◐ | draft | Guarded daily Supabase RPC plus five-minute aggregate health checks and conditional Better Stack heartbeat. |
-| M4.3 Internal API and Access validation | ◐ | draft | Database-aware `/healthz`, Access-protected non-PII `/ops/status`, cached JWKS verification. |
-| M4.4 Hardened runtime image | ◐ | draft | Digest-pinned multi-stage image, uid 10001, read-only-friendly filesystem, healthcheck, and size gate. |
-| M4.5 Production Compose definition | ◐ | draft | Four-service stack from `HOSTING.md` Part 3 with no published ports or Docker socket. |
+| M4.1 Scheduler and runtime assembly | ☑ | #8 | Four UTC schedules, fresh per-run write contexts, overlap prevention, failure isolation, last-run/error state, and 30-second watchdog pulse. |
+| M4.2 Keepalive and host-health jobs | ☑ | #8 | Daily database `SELECT 1` keepalive plus fail-closed five-minute aggregate health and guarded success-only heartbeats. |
+| M4.3 Internal API and Access validation | ☑ | #8 | Database-aware `/healthz`, Access-protected non-PII `/ops/status`, strict RS256 claims, and cached JWKS rotation. |
+| M4.4 Hardened runtime image | ☑ | #8 | Digest-pinned multi-stage image, uid 10001, read-only-friendly filesystem, healthcheck, and 54.9 MB local image. |
+| M4.5 Production Compose definition | ☑ | #8 | Four digest-only hardened services, internal API exposure only, no published ports, host network, privilege, or Docker socket. |
 
 ### M4 G0 plan (2026-09-20)
 
@@ -440,6 +440,24 @@ Compose acceptance boundary: unit/integration tests will run every scheduler job
 Rollback: before deployment, revert the M4 commits; jobs remain disabled by default, `DRY_RUN=true`, and no service is running from this branch. After a dry-run deployment, set the kill switch, disable all job flags, stop the Compose stack, and restore the previously reviewed image digest/Compose revision; preserve `integration_log` and `integration_state`. Access-key/JWKS failure is fail-closed and requires no data cleanup. Rehaan handles any Cloudflare, Supabase, or Better Stack credential rotation outside code; no runtime code mutates those credentials or infrastructure.
 
 Open questions: none. M4 uses database-only keepalive with the existing `DATABASE_DSN`, reuses `BETTERSTACK_KEEPALIVE_URL`, gives no new heartbeat to lead/booking jobs, uses `last_backup_at` and `last_restore_test_at` with absent backup state failing closed, accepts structural Compose validation plus injected all-job tests without a fake overlay, and recognizes the recorded M3 G3 PASS at `ca4b7ca`.
+
+**M4 G1 evidence (2026-09-20)**
+
+- G0 approval: repository-owner approval after the final plan was merged through PR #7 at `a797dcf`; implementation is isolated on PR #8.
+- `make check`: PASS. Ruff check/format and strict mypy passed; pytest passed 211 tests with 89.08% total coverage and no skips/xfails; repository guard passed while reporting the three approved protected paths; pip-audit found no known vulnerabilities; the license gate passed; gitleaks found no leaks; and the digest-pinned multi-stage image built successfully.
+- `make compose-config`: PASS using only `tests/fixtures/compose/synthetic.env`; the production Compose definition parsed without credentials or container startup.
+- `make image-size`: PASS. The local image is 54.9 MB, runs as `10001:10001`, and contains a healthcheck.
+- G2 CI: PASS on PR #8 at `c583c4d`; the full `checks` job passed in 1m34s and the conditional Terraform format/validation job passed in 10s.
+- Planted safety tests: PASS. Tests reject noncanonical Access issuers/hosts, wrong JWT audience/algorithm/key/claims, malformed or empty JWKS, unknown-key rotation failure, unsafe scheduler intervals, missing health dependencies, mutable deployment image references, and each host-health threshold. Dry-run and kill-switch heartbeat paths issue zero HTTP and record `skipped` through the existing guard.
+
+**M4 decisions and open questions**
+
+- The scheduler has a 30-second internal watchdog pulse in addition to the four approved business schedules. This is local process liveness only: it performs no network, database, audit, or external write and prevents slower or disabled business schedules from making a healthy scheduler appear stale.
+- Cloudflare Access keys are cached for five minutes and refreshed once for an unknown `kid`; validation permits only RS256 and requires exact issuer, configured audience, expiry, and issued-at, with 30 seconds of clock skew.
+- The keepalive is exactly one `SELECT 1` followed by the existing guarded `BETTERSTACK_KEEPALIVE_URL` heartbeat. Lead and booking jobs have no M4 heartbeat.
+- Host health fails closed until M5 writes a valid `last_backup_at`; `last_restore_test_at` is displayed but is not a five-minute health condition.
+- Open questions: none.
+- Deviation report: no file, dependency, egress host, privilege, external-write, protected-path, or implementation-scope deviation. The first two standalone image-size attempts encountered transient Docker Hub TLS handshake timeouts resolving the approved Python digest; the subsequent complete `make check` build and final image-size gate passed unchanged.
 ### M5. Deployment tooling
 (G5: deploy, forced smoke failure with automatic rollback, backup, restore test)
 ### M6. Cloudflare infrastructure

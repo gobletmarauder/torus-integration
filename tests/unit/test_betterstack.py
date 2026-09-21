@@ -76,6 +76,7 @@ async def test_heartbeat_uses_exact_host_and_idempotency_key(respx_mock: object)
         {
             "accounts.zoho.com",
             "oauth2.googleapis.com",
+            "torusmesh.cloudflareaccess.com",
             "uptime.betterstack.com",
             "us.i.posthog.com",
             "www.googleapis.com",

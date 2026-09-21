@@ -70,6 +70,12 @@ def test_assertion_has_exact_delegated_claims_and_valid_signature() -> None:
     )
 
 
+def test_assertion_normalizes_escaped_private_key_newlines() -> None:
+    pem, _ = key_pair()
+    escaped = pem.replace("\n", "\\n")
+    assert auth(escaped).assertion().count(".") == 2
+
+
 async def test_token_exchange_is_cached_and_concurrency_safe(respx_mock: object) -> None:
     pem, _ = key_pair()
     route = respx_mock.post(TOKEN).mock(  # type: ignore[attr-defined]

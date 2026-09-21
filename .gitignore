@@ -6,6 +6,9 @@ coverage.xml
 .ruff_cache/
 __pycache__/
 *.py[cod]
+.env
+.env.*
+!.env.example
 docs/bundles/*.md
 !docs/bundles/.gitignore
 infra/cloudflare/.terraform/

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from tempfile import gettempdir
 from typing import Literal
 
 from pydantic import Field, HttpUrl, SecretStr, model_validator
@@ -23,6 +24,15 @@ class Settings(BaseSettings):
     booking_sync_enabled: bool = False
     keepalive_enabled: bool = False
     host_health_enabled: bool = False
+
+    lead_sync_interval_seconds: int = Field(default=30, ge=30)
+    booking_sync_interval_seconds: int = Field(default=120, ge=120)
+    host_health_interval_seconds: int = Field(default=300, ge=300)
+    keepalive_interval_seconds: int = Field(default=86_400, ge=86_400)
+    scheduler_watchdog_path: Path = Field(
+        default_factory=lambda: Path(gettempdir()) / "tis-scheduler.watchdog"
+    )
+    scheduler_watchdog_max_age_seconds: int = Field(default=90, ge=60)
 
     posthog_budget_per_run: int = Field(default=25, gt=0)
     posthog_budget_per_day: int = Field(default=200, gt=0)
@@ -54,6 +64,9 @@ class Settings(BaseSettings):
     google_token_url: HttpUrl | None = None
     google_calendar_api_url: HttpUrl | None = None
     google_booking_lookback_days: int = Field(default=7, ge=7, le=7)
+    cloudflare_access_team_domain: str | None = None
+    cloudflare_access_audience: SecretStr | None = None
+    tis_digest: str = "unknown"
 
     @model_validator(mode="after")
     def require_safe_dry_run(self) -> Settings:
@@ -94,6 +107,17 @@ class Settings(BaseSettings):
             }
             if google_hosts != {"oauth2.googleapis.com", "www.googleapis.com"}:
                 raise ValueError("Google URLs must use the approved hosts")
+        if self.keepalive_enabled:
+            if not self.database_dsn or self.betterstack_keepalive_url is None:
+                raise ValueError("keepalive settings are incomplete")
+        if self.host_health_enabled:
+            if not self.database_dsn or self.betterstack_host_health_url is None:
+                raise ValueError("host health settings are incomplete")
+        if self.cloudflare_access_team_domain is not None:
+            domain = self.cloudflare_access_team_domain.lower().rstrip(".")
+            if domain != "torusmesh.cloudflareaccess.com":
+                raise ValueError("Cloudflare Access must use the approved team domain")
+            self.cloudflare_access_team_domain = domain
         return self
 
 
