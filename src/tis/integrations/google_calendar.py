@@ -140,7 +140,8 @@ class GoogleCalendarAuth:
         }
         signing_input = b".".join((_encode_json(header), _encode_json(claims)))
         try:
-            key = serialization.load_pem_private_key(self._private_key.encode(), password=None)
+            normalized_key = self._private_key.replace("\\n", "\n")
+            key = serialization.load_pem_private_key(normalized_key.encode(), password=None)
         except (TypeError, ValueError) as error:
             raise ExternalError("Google service-account private key was invalid") from error
         if not isinstance(key, rsa.RSAPrivateKey):

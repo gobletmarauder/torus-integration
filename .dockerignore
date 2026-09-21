@@ -1,5 +1,8 @@
 .git
 .github
+.env
+.env.*
+!.env.example
 .venv
 .coverage
 .pytest_cache
@@ -9,6 +12,7 @@ docs
 tests
 scripts
 secrets
+infra
 *.pyc
 __pycache__
 

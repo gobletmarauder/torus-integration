@@ -16,6 +16,7 @@ EGRESS_ALLOWLIST: frozenset[str] = frozenset(
     {
         "accounts.zoho.com",
         "oauth2.googleapis.com",
+        "torusmesh.cloudflareaccess.com",
         "uptime.betterstack.com",
         "us.i.posthog.com",
         "www.googleapis.com",
